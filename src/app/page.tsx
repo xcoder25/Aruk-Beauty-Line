@@ -8,6 +8,8 @@ import Ingredients from "./components/Ingredients";
 import RoutineFinder from "./components/RoutineFinder";
 import Testimonials from "./components/Testimonials";
 import Footer from "./components/Footer";
+import ChatBot from "./components/ChatBot";
+import OrderReceipt from "./components/OrderReceipt";
 import Image from "next/image";
 import { 
   X, 
@@ -45,6 +47,13 @@ export default function Home() {
   const [custCity, setCustCity] = useState("Uyo");
   const [paying, setPaying] = useState(false);
   const [lastOrderRef, setLastOrderRef] = useState("");
+  const [completedOrder, setCompletedOrder] = useState<{
+    orderRef: string;
+    items: CartItem[];
+    subtotal: number;
+    totalNaira: number;
+    createdAt: string;
+  } | null>(null);
 
   // Load Paystack script dynamically on mount
   useEffect(() => {
@@ -157,15 +166,15 @@ export default function Home() {
       const totalNaira = nairaSubtotal + deliveryFee;
 
       const handler = (window as any).PaystackPop.setup({
-        key: "pk_test_df9800d984bc8502f1a602bd1a73eeec84ad1292", // Paystack Test Public Key
+        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "pk_test_df9800d984bc8502f1a602bd1a73eeec84ad1292", // Paystack Test Public Key
         email: custEmail,
         amount: totalNaira * 100, // Amount in kobo
         currency: "NGN",
         callback: async (response: any) => {
           const orderRef = response.reference;
           setLastOrderRef(orderRef);
-          
           try {
+            const createdTime = new Date().toISOString();
             // Save completed order details directly to Cloud Firestore
             await addDoc(collection(db, "orders"), {
               name: custName,
@@ -183,9 +192,16 @@ export default function Home() {
               totalNaira: totalNaira,
               paystackReference: orderRef,
               status: "Pending Delivery",
-              createdAt: new Date().toISOString(),
+              createdAt: createdTime,
             });
             
+            setCompletedOrder({
+              orderRef,
+              items: [...cart],
+              subtotal,
+              totalNaira,
+              createdAt: createdTime,
+            });
             setCart([]);
             setCheckoutStep("success");
             showToast("Order placed successfully!");
@@ -221,11 +237,11 @@ export default function Home() {
     <div className="relative min-h-screen">
       {/* Toast Notification */}
       <div
-        className={`fixed bottom-6 right-6 z-50 bg-foreground text-background dark:bg-background dark:text-foreground dark:border dark:border-border px-5 py-4 rounded-2xl shadow-2xl flex items-center space-x-3.5 transition-all duration-300 transform ${
-          toast.show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4 pointer-events-none"
+        className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-[60] bg-foreground text-background dark:bg-background dark:text-foreground dark:border dark:border-border px-4 py-3 sm:px-5 sm:py-4 rounded-2xl shadow-2xl flex items-center space-x-3 transition-all duration-300 transform max-w-xs sm:max-w-none mx-auto sm:mx-0 ${
+          toast.show ? "opacity-100 translate-y-0" : "opacity-100 translate-y-20 pointer-events-none"
         }`}
       >
-        <div className="w-2.5 h-2.5 rounded-full bg-primary" />
+        <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-primary flex-shrink-0" />
         <span className="text-xs font-semibold">{toast.message}</span>
       </div>
 
@@ -234,7 +250,7 @@ export default function Home() {
         href="https://wa.me/2349044222531"
         target="_blank"
         rel="noopener noreferrer"
-        className="fixed bottom-6 left-6 sm:bottom-8 sm:left-8 z-40 bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:scale-105 transition-transform flex items-center justify-center border-2 border-white dark:border-[#11100F] group"
+        className="fixed bottom-4 left-4 sm:bottom-8 sm:left-8 z-40 bg-[#25D366] text-white p-3.5 sm:p-4 rounded-full shadow-2xl hover:scale-105 active:scale-95 transition-transform flex items-center justify-center border-2 border-white dark:border-[#11100F] group"
         aria-label="Chat & Order on WhatsApp"
       >
         <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
@@ -261,6 +277,9 @@ export default function Home() {
       <Testimonials />
 
       <Footer />
+
+      {/* AI Chatbot Widget */}
+      <ChatBot />
 
       {/* Skincare Quiz Modal */}
       <RoutineFinder
@@ -572,43 +591,29 @@ export default function Home() {
               )}
 
               {/* STEP 3: TRANSACTION SUCCESS RECEIPT */}
-              {checkoutStep === "success" && (
-                <div className="flex-grow overflow-y-auto p-8 flex flex-col items-center justify-center text-center space-y-6 animate-fade-in bg-background">
-                  <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/20 text-green-600 flex items-center justify-center shadow-inner animate-bounce">
-                    <Check className="w-8 h-8" />
-                  </div>
-                  <div className="space-y-2">
-                    <h3 className="font-serif text-xl font-bold text-foreground">Order Placed Successfully!</h3>
-                    <p className="text-xs text-muted font-light leading-relaxed max-w-[280px]">
-                      Your payment was verified. We have registered your details and will commence delivery of your skin repair products immediately.
-                    </p>
-                  </div>
-
-                  <div className="w-full bg-accent/20 border border-border/80 p-5 rounded-2xl text-left text-xs space-y-3.5">
-                    <div className="pb-2.5 border-b border-border/60">
-                      <span className="text-[10px] text-muted uppercase tracking-wider block">Paystack Reference</span>
-                      <span className="font-mono text-foreground font-semibold mt-0.5 block">{lastOrderRef || "PAY-REF-DEMO-991"}</span>
-                    </div>
-                    <div>
-                      <span className="text-[10px] text-muted uppercase tracking-wider block">Shipping Address</span>
-                      <span className="text-foreground font-medium mt-0.5 block">
-                        {custName}<br />
-                        {custAddress}, {custCity}<br />
-                        Nigeria 🇳🇬 ({custPhone})
-                      </span>
-                    </div>
-                  </div>
-
-                  <button
-                    onClick={() => {
-                      setCheckoutStep("cart");
-                      setIsCartOpen(false);
-                    }}
-                    className="w-full bg-primary text-primary-foreground font-semibold py-3.5 rounded-full text-xs uppercase tracking-wider hover:bg-primary/95 transition-all shadow-md shadow-primary/5 cursor-pointer mt-4"
-                  >
-                    Continue Shopping
-                  </button>
-                </div>
+              {checkoutStep === "success" && completedOrder && (
+                <OrderReceipt
+                  orderRef={completedOrder.orderRef}
+                  customerName={custName}
+                  customerEmail={custEmail}
+                  customerPhone={custPhone}
+                  customerAddress={custAddress}
+                  customerCity={custCity}
+                  items={completedOrder.items.map((item) => ({
+                    id: item.product.id,
+                    name: item.product.name,
+                    price: item.product.price,
+                    quantity: item.quantity,
+                  }))}
+                  subtotalUsd={completedOrder.subtotal}
+                  totalNaira={completedOrder.totalNaira}
+                  createdAt={completedOrder.createdAt}
+                  onClose={() => {
+                    setCheckoutStep("cart");
+                    setIsCartOpen(false);
+                    setCompletedOrder(null);
+                  }}
+                />
               )}
 
             </div>
