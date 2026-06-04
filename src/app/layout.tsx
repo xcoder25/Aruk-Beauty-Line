@@ -14,8 +14,8 @@ const playfair = Playfair_Display({
 });
 
 export const metadata: Metadata = {
-  title: "Aruk | Handcrafted Organic Soaps, Creams & Skincare",
-  description: "Discover Aruk's luxurious collection of premium artisanal soaps, hydrating creams, and organic skincare products crafted by nature for radiant, healthy skin.",
+  title: "Aruk Beauty Line | Organic Skincare for Mature Women",
+  description: "99.5% Organic, pocket-friendly, and premium quality body care products formulated to repair damaged skin and restore radiance after 40. Handcrafted in Uyo.",
 };
 
 export default function RootLayout({

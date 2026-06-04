@@ -284,23 +284,23 @@ export default function Products({ onAddToBag }: ProductsProps) {
             </div>
             <div className="lg:col-span-7 p-8 sm:p-12 lg:p-16 flex flex-col space-y-4">
               <span className="flex items-center gap-1.5 text-xs font-semibold text-primary uppercase tracking-widest">
-                <ShieldCheck className="w-4 h-4" /> Strictly Pure & Safe
+                <ShieldCheck className="w-4 h-4" /> Formulated & Produced In-House
               </span>
               <h3 className="font-serif text-2xl sm:text-3xl font-semibold text-foreground">
-                Artisanal Soap and Whipped Cream
+                99.5% Organic & Premium Quality
               </h3>
               <p className="text-muted text-xs sm:text-sm font-light leading-relaxed max-w-xl">
-                We believe that what goes on your body is just as important as what goes in it. Our creams and soaps are formulated without sulfates, artificial preservatives, synthetic dyes, or cheap fillers. We use raw ingredients and botanicals that nurture healthy skin cells naturally.
+                We formulate and produce body care products that are both safe and pocket-friendly. Handcrafted in Uyo, our soaps and creams are completely free from harsh chemicals or fillers, using active plant nutrients to repair damaged skin and restore healthy radiance from head to toe.
               </p>
               <div className="pt-2 flex flex-wrap gap-4">
                 <div className="flex items-center gap-1.5 text-[11px] font-medium text-foreground bg-accent/40 px-3.5 py-1.5 rounded-full">
-                  <span>🍃</span> 100% Eco-Friendly
+                  <span>🍃</span> 99.5% Organic
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] font-medium text-foreground bg-accent/40 px-3.5 py-1.5 rounded-full">
-                  <span>🐰</span> Cruelty-Free
+                  <span>💰</span> Pocket Friendly
                 </div>
                 <div className="flex items-center gap-1.5 text-[11px] font-medium text-foreground bg-accent/40 px-3.5 py-1.5 rounded-full">
-                  <span>👐</span> Small-Batch Handcrafted
+                  <span>📍</span> Handcrafted in Uyo
                 </div>
               </div>
             </div>

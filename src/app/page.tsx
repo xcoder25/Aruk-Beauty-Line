@@ -112,6 +112,22 @@ export default function Home() {
         <span className="text-xs font-semibold">{toast.message}</span>
       </div>
 
+      {/* Floating WhatsApp Widget */}
+      <a
+        href="https://wa.me/2349044222531"
+        target="_blank"
+        rel="noopener noreferrer"
+        className="fixed bottom-6 left-6 sm:bottom-8 sm:left-8 z-40 bg-[#25D366] text-white p-4 rounded-full shadow-2xl hover:scale-105 transition-transform flex items-center justify-center border-2 border-white dark:border-[#11100F] group"
+        aria-label="Chat & Order on WhatsApp"
+      >
+        <svg className="w-6 h-6 fill-current" viewBox="0 0 24 24">
+          <path d="M.057 24l1.687-6.163c-1.041-1.804-1.588-3.849-1.587-5.946C.06 5.348 5.397.01 12.008.01c3.202.001 6.212 1.246 8.477 3.514 2.266 2.268 3.507 5.28 3.505 8.484-.004 6.657-5.34 11.997-11.953 11.997-2.005-.001-3.973-.502-5.724-1.457L0 24zm6.59-4.846c1.6.95 3.188 1.449 4.825 1.451 5.436 0 9.86-4.42 9.864-9.864.002-2.637-1.023-5.115-2.886-6.981-1.862-1.865-4.34-2.89-6.984-2.891-5.439 0-9.865 4.421-9.869 9.867-.001 1.73.454 3.42 1.316 4.908l-.975 3.565 3.654-.958zm11.596-5.45c-.302-.151-1.787-.882-2.057-.98-.27-.099-.467-.147-.662.147-.196.294-.758.955-.93 1.151-.171.196-.341.221-.643.07-1.282-.641-2.115-1.09-2.946-2.515-.221-.379-.221-.652-.07-.803.136-.137.302-.351.453-.526.151-.176.201-.301.302-.503.101-.201.05-.378-.025-.526-.076-.151-.662-1.597-.907-2.186-.239-.575-.483-.497-.662-.506-.171-.008-.368-.01-.565-.01-.197 0-.517.074-.788.368-.27.294-1.031 1.008-1.031 2.459 0 1.451 1.054 2.854 1.202 3.051.147.196 2.074 3.167 5.024 4.444.702.304 1.25.486 1.677.622.705.224 1.347.193 1.854.117.565-.084 1.788-.731 2.04-1.438.252-.706.252-1.312.177-1.438-.076-.126-.271-.201-.573-.352z"/>
+        </svg>
+        <span className="max-w-0 overflow-hidden group-hover:max-w-[120px] transition-all duration-300 ease-out whitespace-nowrap text-[10px] font-bold uppercase tracking-wider pl-0 group-hover:pl-2">
+          Chat & Order
+        </span>
+      </a>
+
       {/* Main Pages */}
       <Navbar
         cartCount={totalItems}

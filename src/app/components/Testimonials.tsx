@@ -11,43 +11,43 @@ interface Testimonial {
 
 const TESTIMONIALS_DATA: Testimonial[] = [
   {
-    name: "Sarah M.",
-    location: "Seattle, WA",
+    name: "Sarah O.",
+    location: "Lagos, NG",
     rating: 5,
     product: "Shea Butter Deep Hydration Cream",
-    comment: "My dry skin has never felt this soft and hydrated! The Whipped Shea Butter Cream absorbs quickly without any greasy residue, and the calming chamomile scent is pure heaven. It is a absolute daily essential for me now.",
+    comment: "At 46, finding creams that actually restore skin elasticity without feeling heavy was a real struggle. Aruk's whipped cream has repaired my dry skin barrier completely! My face looks and feels radiant.",
     date: "2 weeks ago"
   },
   {
-    name: "James R.",
-    location: "Austin, TX",
+    name: "Mfon U.",
+    location: "Uyo, NG",
     rating: 5,
-    product: "Activated Charcoal Mint Detox Soap",
-    comment: "I was skeptical about using bar soaps on my face, but Aruk's Charcoal Mint soap completely cleared up my chin breakouts in just a week. It cleanses deeply but doesn't leave that squeaky, dried-out feel. 10/10.",
+    product: "Lavender Oats Calm Soap",
+    comment: "I had damaged my skin barrier with harsh chemicals. Switching to the Lavender Oats Calm Soap healed my reactive skin within 3 weeks. The oatmeal feels so calming and soft on the face.",
     date: "1 month ago"
   },
   {
-    name: "Elena P.",
-    location: "New York, NY",
+    name: "Chioma A.",
+    location: "Abuja, NG",
     rating: 5,
-    product: "Lavender Oats Calm Soap",
-    comment: "Finding a soap that doesn't trigger my rosacea was impossible until I found Aruk. The Lavender Oats bar is so gentle, it calms my skin redness instantly. The oatmeal scrub feel is amazing.",
+    product: "Botanical Glow Facial Elixir",
+    comment: "This facial oil is a miracle worker for mature skin! At 52, my skin is glowing, and dark spots around my cheeks have visibly faded. My friends are asking for my skincare secrets!",
     date: "3 weeks ago"
   },
   {
-    name: "Marcus L.",
-    location: "San Francisco, CA",
+    name: "Blessing E.",
+    location: "Uyo, NG",
     rating: 5,
-    product: "Botanical Glow Facial Elixir",
-    comment: "This facial oil is magical. I put 3 drops on my face before bed and wake up with the most radiant, rested glow. It has helped fade my post-acne dark marks and feels like a luxurious skincare ritual in a bottle.",
+    product: "Honey Amber Glow Soap",
+    comment: "The Honey Amber Glow Soap smells amazing. It has evened out my skin tone and leaves a rich, moisturizing lather. It is exceptionally pocket-friendly and handcrafted right here in Uyo!",
     date: "2 months ago"
   },
   {
-    name: "Clara T.",
-    location: "Miami, FL",
+    name: "Funmi K.",
+    location: "Port Harcourt, NG",
     rating: 4.8,
-    product: "Honey Amber Glow Soap",
-    comment: "The scent of Honey Amber Glow soap is intoxicating—rich, warm, and natural. It provides a creamy lotion-like lather that makes taking a shower feel like a luxury ritual. Will definitely buy the 3-bar bundle next time!",
+    product: "Activated Charcoal Mint Detox Soap",
+    comment: "The 99.5% organic ingredients are excellent for skin health. It draws out impurities without that dry, tight feel. My skin feels fresh, healthy, and hydrated all day.",
     date: "3 days ago"
   }
 ];
