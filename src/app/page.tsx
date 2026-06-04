@@ -9,7 +9,21 @@ import RoutineFinder from "./components/RoutineFinder";
 import Testimonials from "./components/Testimonials";
 import Footer from "./components/Footer";
 import Image from "next/image";
-import { X, Plus, Minus, Trash2, ShoppingBag, ShieldCheck, CreditCard } from "lucide-react";
+import { 
+  X, 
+  Plus, 
+  Minus, 
+  Trash2, 
+  ShoppingBag, 
+  ShieldCheck, 
+  CreditCard, 
+  ArrowLeft, 
+  Check, 
+  Sparkles, 
+  Loader2 
+} from "lucide-react";
+import { db } from "./lib/firebase";
+import { collection, addDoc } from "firebase/firestore";
 
 interface CartItem {
   product: Product;
@@ -22,6 +36,29 @@ export default function Home() {
   const [isRoutineOpen, setIsRoutineOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; show: boolean }>({ message: "", show: false });
 
+  // Checkout and Paystack States
+  const [checkoutStep, setCheckoutStep] = useState<"cart" | "shipping" | "success">("cart");
+  const [custName, setCustName] = useState("");
+  const [custEmail, setCustEmail] = useState("");
+  const [custPhone, setCustPhone] = useState("");
+  const [custAddress, setCustAddress] = useState("");
+  const [custCity, setCustCity] = useState("Uyo");
+  const [paying, setPaying] = useState(false);
+  const [lastOrderRef, setLastOrderRef] = useState("");
+
+  // Load Paystack script dynamically on mount
+  useEffect(() => {
+    const script = document.createElement("script");
+    script.src = "https://js.paystack.co/v1/inline.js";
+    script.async = true;
+    document.body.appendChild(script);
+    return () => {
+      if (document.body.contains(script)) {
+        document.body.removeChild(script);
+      }
+    };
+  }, []);
+
   // Sync scroll lock with cart drawer
   useEffect(() => {
     if (isCartOpen || isRoutineOpen) {
@@ -33,6 +70,16 @@ export default function Home() {
       document.body.style.overflow = "unset";
     };
   }, [isCartOpen, isRoutineOpen]);
+
+  // Reset checkout step when cart drawer closes
+  useEffect(() => {
+    if (!isCartOpen) {
+      const timer = setTimeout(() => {
+        setCheckoutStep("cart");
+      }, 500);
+      return () => clearTimeout(timer);
+    }
+  }, [isCartOpen]);
 
   const showToast = (message: string) => {
     setToast({ message, show: true });
@@ -91,6 +138,76 @@ export default function Home() {
   const handleRemoveFromCart = (productId: string, name: string) => {
     setCart((prevCart) => prevCart.filter((item) => item.product.id !== productId));
     showToast(`Removed ${name} from your bag.`);
+  };
+
+  // Launch Paystack payment popup
+  const handlePaystackCheckout = (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!custName || !custEmail || !custPhone || !custAddress || !custCity) {
+      showToast("Please fill in all delivery details.");
+      return;
+    }
+
+    setPaying(true);
+
+    try {
+      const exchangeRate = 1500; // 1 USD = 1500 NGN exchange rate for pocket friendly pricing
+      const nairaSubtotal = Math.round(subtotal * exchangeRate);
+      const deliveryFee = subtotal >= freeShippingThreshold ? 0 : Math.round(4.99 * exchangeRate);
+      const totalNaira = nairaSubtotal + deliveryFee;
+
+      const handler = (window as any).PaystackPop.setup({
+        key: "pk_test_df9800d984bc8502f1a602bd1a73eeec84ad1292", // Paystack Test Public Key
+        email: custEmail,
+        amount: totalNaira * 100, // Amount in kobo
+        currency: "NGN",
+        callback: async (response: any) => {
+          const orderRef = response.reference;
+          setLastOrderRef(orderRef);
+          
+          try {
+            // Save completed order details directly to Cloud Firestore
+            await addDoc(collection(db, "orders"), {
+              name: custName,
+              email: custEmail,
+              phone: custPhone,
+              address: custAddress,
+              city: custCity,
+              items: cart.map((item) => ({
+                id: item.product.id,
+                name: item.product.name,
+                price: item.product.price,
+                quantity: item.quantity,
+              })),
+              subtotalUsd: subtotal,
+              totalNaira: totalNaira,
+              paystackReference: orderRef,
+              status: "Pending Delivery",
+              createdAt: new Date().toISOString(),
+            });
+            
+            setCart([]);
+            setCheckoutStep("success");
+            showToast("Order placed successfully!");
+          } catch (dbErr) {
+            console.error("Firestore order logging error: ", dbErr);
+            showToast("Payment verified, failed to record order on server. Contact support.");
+          } finally {
+            setPaying(false);
+          }
+        },
+        onClose: () => {
+          setPaying(false);
+          showToast("Payment cancellation received.");
+        },
+      });
+
+      handler.openIframe();
+    } catch (err) {
+      console.error("Paystack popup instantiation error: ", err);
+      showToast("Could not trigger Paystack popups.");
+      setPaying(false);
+    }
   };
 
   // Calculations
@@ -163,151 +280,337 @@ export default function Home() {
 
           <div className="absolute inset-y-0 right-0 max-w-full flex pl-10">
             <div className="w-screen max-w-md bg-background border-l border-border flex flex-col shadow-2xl animate-fade-in">
-              {/* Header */}
-              <div className="p-6 border-b border-border flex items-center justify-between">
-                <div className="flex items-center space-x-2">
-                  <ShoppingBag className="w-5 h-5 text-primary" />
-                  <h3 className="font-serif text-lg font-bold text-foreground">Your Shopping Bag ({totalItems})</h3>
-                </div>
-                <button
-                  onClick={() => setIsCartOpen(false)}
-                  className="bg-accent/40 hover:bg-accent border border-border/80 p-2 rounded-full text-foreground/85 hover:text-foreground transition-all cursor-pointer"
-                >
-                  <X className="w-4 h-4" />
-                </button>
-              </div>
-
-              {/* Free Shipping Meter */}
-              <div className="px-6 py-4 bg-accent/20 border-b border-border text-xs">
-                {subtotal >= freeShippingThreshold ? (
-                  <p className="font-semibold text-primary">🎉 You qualify for Free Carbon-Neutral Shipping!</p>
-                ) : (
-                  <div className="space-y-2">
-                    <p className="text-muted font-light">
-                      Add <strong className="font-semibold text-foreground">${needsMoreForFreeShipping.toFixed(2)}</strong> more for free shipping.
-                    </p>
-                    <div className="w-full bg-border rounded-full h-1.5 overflow-hidden">
-                      <div className="bg-primary h-full transition-all duration-500" style={{ width: `${shippingPercent}%` }} />
-                    </div>
-                  </div>
-                )}
-              </div>
-
-              {/* Items List */}
-              <div className="flex-grow overflow-y-auto p-6 space-y-4">
-                {cart.length === 0 ? (
-                  <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
-                    <div className="w-16 h-16 rounded-full bg-accent/40 flex items-center justify-center text-primary">
-                      <ShoppingBag className="w-8 h-8" />
-                    </div>
-                    <div>
-                      <h4 className="font-serif text-base font-bold text-foreground">Your bag is empty</h4>
-                      <p className="text-xs text-muted font-light mt-1 max-w-[200px] mx-auto">
-                        Add some artisanal organic bar soaps or nourishing body creams to start.
-                      </p>
+              
+              {/* STEP 1: CART LIST VIEW */}
+              {checkoutStep === "cart" && (
+                <>
+                  {/* Header */}
+                  <div className="p-6 border-b border-border flex items-center justify-between">
+                    <div className="flex items-center space-x-2">
+                      <ShoppingBag className="w-5 h-5 text-primary" />
+                      <h3 className="font-serif text-lg font-bold text-foreground">Your Shopping Bag ({totalItems})</h3>
                     </div>
                     <button
                       onClick={() => setIsCartOpen(false)}
-                      className="bg-primary text-primary-foreground font-semibold px-6 py-2.5 rounded-full text-xs uppercase tracking-wider hover:bg-primary/95 transition-all shadow-md shadow-primary/5 cursor-pointer"
+                      className="bg-accent/40 hover:bg-accent border border-border/80 p-2 rounded-full text-foreground/85 hover:text-foreground transition-all cursor-pointer"
                     >
-                      Browse Collection
+                      <X className="w-4 h-4" />
                     </button>
                   </div>
-                ) : (
-                  cart.map((item) => (
-                    <div
-                      key={item.product.id}
-                      className="flex items-center gap-4 p-4 border border-border/80 rounded-2xl bg-card"
-                    >
-                      {/* Product Image preview */}
-                      <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-accent/20 flex-shrink-0">
-                        {item.product.image ? (
-                          <Image
-                            src={item.product.image}
-                            alt={item.product.name}
-                            fill
-                            style={{ objectFit: "cover" }}
-                          />
-                        ) : (
-                          <div className="w-full h-full bg-gradient-to-tr from-accent/30 to-accent/40 flex items-center justify-center text-primary/30 font-bold">
-                            🌱
+
+                  {/* Free Shipping Meter */}
+                  <div className="px-6 py-4 bg-accent/20 border-b border-border text-xs">
+                    {subtotal >= freeShippingThreshold ? (
+                      <p className="font-semibold text-primary">🎉 You qualify for Free Carbon-Neutral Shipping!</p>
+                    ) : (
+                      <div className="space-y-2">
+                        <p className="text-muted font-light">
+                          Add <strong className="font-semibold text-foreground">${needsMoreForFreeShipping.toFixed(2)}</strong> more for free shipping.
+                        </p>
+                        <div className="w-full bg-border rounded-full h-1.5 overflow-hidden">
+                          <div className="bg-primary h-full transition-all duration-500" style={{ width: `${shippingPercent}%` }} />
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
+                  {/* Items List */}
+                  <div className="flex-grow overflow-y-auto p-6 space-y-4">
+                    {cart.length === 0 ? (
+                      <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
+                        <div className="w-16 h-16 rounded-full bg-accent/40 flex items-center justify-center text-primary">
+                          <ShoppingBag className="w-8 h-8" />
+                        </div>
+                        <div>
+                          <h4 className="font-serif text-base font-bold text-foreground">Your bag is empty</h4>
+                          <p className="text-xs text-muted font-light mt-1 max-w-[200px] mx-auto">
+                            Add some artisanal organic soaps or whipped body creams to start.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setIsCartOpen(false)}
+                          className="bg-primary text-primary-foreground font-semibold px-6 py-2.5 rounded-full text-xs uppercase tracking-wider hover:bg-primary/95 transition-all shadow-md shadow-primary/5 cursor-pointer"
+                        >
+                          Browse Collection
+                        </button>
+                      </div>
+                    ) : (
+                      cart.map((item) => (
+                        <div
+                          key={item.product.id}
+                          className="flex items-center gap-4 p-4 border border-border/80 rounded-2xl bg-card"
+                        >
+                          {/* Image preview */}
+                          <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-accent/20 flex-shrink-0">
+                            {item.product.image ? (
+                              <Image
+                                src={item.product.image}
+                                alt={item.product.name}
+                                fill
+                                style={{ objectFit: "cover" }}
+                              />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-primary">🌱</div>
+                            )}
                           </div>
-                        )}
+
+                          {/* Info & Quantity controls */}
+                          <div className="flex-grow">
+                            <div className="flex justify-between items-start">
+                              <h4 className="text-xs font-bold text-foreground leading-tight line-clamp-1">{item.product.name}</h4>
+                              <button
+                                onClick={() => handleRemoveFromCart(item.product.id, item.product.name)}
+                                className="text-muted hover:text-red-500 transition-colors p-1"
+                              >
+                                <Trash2 className="w-3.5 h-3.5" />
+                              </button>
+                            </div>
+                            <span className="text-[10px] text-muted block mt-0.5">{item.product.size}</span>
+                            
+                            <div className="flex justify-between items-center mt-3">
+                              {/* Quantity selectors */}
+                              <div className="flex items-center border border-border/80 rounded-full bg-background px-1.5 py-0.5">
+                                <button
+                                  onClick={() => handleUpdateQuantity(item.product.id, -1)}
+                                  className="text-muted hover:text-foreground p-1 cursor-pointer"
+                                >
+                                  <Minus className="w-3 h-3" />
+                                </button>
+                                <span className="text-xs font-bold text-foreground px-2.5 min-w-[20px] text-center">
+                                  {item.quantity}
+                                </span>
+                                <button
+                                  onClick={() => handleUpdateQuantity(item.product.id, 1)}
+                                  className="text-muted hover:text-foreground p-1 cursor-pointer"
+                                >
+                                  <Plus className="w-3 h-3" />
+                                </button>
+                              </div>
+                              
+                              {/* Price */}
+                              <span className="text-xs font-bold text-foreground">
+                                ${(item.product.price * item.quantity).toFixed(2)}
+                              </span>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  {/* Checkout Foot */}
+                  {cart.length > 0 && (
+                    <div className="p-6 border-t border-border bg-card space-y-4">
+                      <div className="space-y-2.5 text-xs text-muted">
+                        <div className="flex justify-between">
+                          <span>Shipping</span>
+                          <span>{subtotal >= freeShippingThreshold ? "FREE" : "$4.99"}</span>
+                        </div>
+                        <div className="flex justify-between font-bold text-foreground text-sm pt-2.5 border-t border-border/40">
+                          <span>Total Subtotal</span>
+                          <span>${subtotal.toFixed(2)}</span>
+                        </div>
                       </div>
 
-                      {/* Info & Quantity controls */}
-                      <div className="flex-grow">
-                        <div className="flex justify-between items-start">
-                          <h4 className="text-xs font-bold text-foreground leading-tight line-clamp-1">{item.product.name}</h4>
-                          <button
-                            onClick={() => handleRemoveFromCart(item.product.id, item.product.name)}
-                            className="text-muted hover:text-red-500 transition-colors p-1"
-                          >
-                            <Trash2 className="w-3.5 h-3.5" />
-                          </button>
-                        </div>
-                        <span className="text-[10px] text-muted block mt-0.5">{item.product.size}</span>
+                      <div className="pt-2 space-y-3">
+                        <button
+                          onClick={() => setCheckoutStep("shipping")}
+                          className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-semibold py-3.5 rounded-full shadow-lg shadow-primary/10 hover:bg-primary/95 text-xs uppercase tracking-wider cursor-pointer"
+                        >
+                          <CreditCard className="w-4 h-4" /> Proceed to Checkout
+                        </button>
                         
-                        <div className="flex justify-between items-center mt-3">
-                          {/* Quantity selectors */}
-                          <div className="flex items-center border border-border/80 rounded-full bg-background px-1.5 py-0.5">
-                            <button
-                              onClick={() => handleUpdateQuantity(item.product.id, -1)}
-                              className="text-muted hover:text-foreground p-1 cursor-pointer"
-                            >
-                              <Minus className="w-3 h-3" />
-                            </button>
-                            <span className="text-xs font-bold text-foreground px-2.5 min-w-[20px] text-center">
-                              {item.quantity}
-                            </span>
-                            <button
-                              onClick={() => handleUpdateQuantity(item.product.id, 1)}
-                              className="text-muted hover:text-foreground p-1 cursor-pointer"
-                            >
-                              <Plus className="w-3 h-3" />
-                            </button>
-                          </div>
-                          
-                          {/* Price */}
-                          <span className="text-xs font-bold text-foreground">
-                            ${(item.product.price * item.quantity).toFixed(2)}
-                          </span>
+                        <div className="flex items-center justify-center gap-1.5 text-[10px] text-muted">
+                          <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                          <span>SSL Secured E-Commerce Checkout</span>
                         </div>
                       </div>
                     </div>
-                  ))
-                )}
-              </div>
+                  )}
+                </>
+              )}
 
-              {/* Checkout Foot */}
-              {cart.length > 0 && (
-                <div className="p-6 border-t border-border bg-card space-y-4">
-                  <div className="space-y-2.5 text-xs text-muted">
-                    <div className="flex justify-between">
-                      <span>Shipping</span>
-                      <span>{subtotal >= freeShippingThreshold ? "FREE" : "$4.99"}</span>
-                    </div>
-                    <div className="flex justify-between font-bold text-foreground text-sm pt-2.5 border-t border-border/40">
-                      <span>Total Subtotal</span>
-                      <span>${subtotal.toFixed(2)}</span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 space-y-3">
+              {/* STEP 2: SHIPPING DETAILS FORM */}
+              {checkoutStep === "shipping" && (
+                <>
+                  {/* Header */}
+                  <div className="p-6 border-b border-border flex items-center justify-between">
                     <button
-                      onClick={() => alert(`This is a demo checkout. Order subtotal: $${subtotal.toFixed(2)}`)}
-                      className="w-full flex items-center justify-center gap-2 bg-primary text-primary-foreground font-semibold py-3.5 rounded-full shadow-lg shadow-primary/10 hover:bg-primary/95 text-xs uppercase tracking-wider cursor-pointer"
+                      onClick={() => setCheckoutStep("cart")}
+                      className="flex items-center gap-1 text-xs text-muted hover:text-foreground transition-colors cursor-pointer"
                     >
-                      <CreditCard className="w-4 h-4" /> Proceed to Checkout
+                      <ArrowLeft className="w-3.5 h-3.5" /> Back
                     </button>
-                    
-                    <div className="flex items-center justify-center gap-1.5 text-[10px] text-muted">
-                      <ShieldCheck className="w-3.5 h-3.5 text-primary" />
-                      <span>SSL Encrypted Checkout. Carbon Neutral Shipping.</span>
+                    <h3 className="font-serif text-base font-bold text-foreground">Delivery Details</h3>
+                    <button
+                      onClick={() => setIsCartOpen(false)}
+                      className="bg-accent/40 hover:bg-accent border border-border/80 p-2 rounded-full text-foreground/85 hover:text-foreground transition-all cursor-pointer"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                  </div>
+
+                  {/* Form fields */}
+                  <div className="flex-grow overflow-y-auto p-6">
+                    <form onSubmit={handlePaystackCheckout} id="shipping-form" className="space-y-4 text-xs text-foreground">
+                      <div className="space-y-1.5">
+                        <label className="font-semibold uppercase tracking-wider block text-[10px]">Your Full Name *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. Sarah Umoh"
+                          value={custName}
+                          onChange={(e) => setCustName(e.target.value)}
+                          className="w-full bg-background border border-border/80 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-primary text-foreground"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="font-semibold uppercase tracking-wider block text-[10px]">Email Address * (For Receipt)</label>
+                        <input
+                          type="email"
+                          required
+                          placeholder="e.g. sarah@example.com"
+                          value={custEmail}
+                          onChange={(e) => setCustEmail(e.target.value)}
+                          className="w-full bg-background border border-border/80 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-primary text-foreground"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="font-semibold uppercase tracking-wider block text-[10px]">Delivery Phone Number *</label>
+                        <input
+                          type="tel"
+                          required
+                          placeholder="e.g. +234 904 422 2531"
+                          value={custPhone}
+                          onChange={(e) => setCustPhone(e.target.value)}
+                          className="w-full bg-background border border-border/80 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-primary text-foreground"
+                        />
+                      </div>
+
+                      <div className="space-y-1.5">
+                        <label className="font-semibold uppercase tracking-wider block text-[10px]">Delivery Street Address *</label>
+                        <input
+                          type="text"
+                          required
+                          placeholder="e.g. 12 Abak Road"
+                          value={custAddress}
+                          onChange={(e) => setCustAddress(e.target.value)}
+                          className="w-full bg-background border border-border/80 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-primary text-foreground"
+                        />
+                      </div>
+
+                      <div className="grid grid-cols-2 gap-4">
+                        <div className="space-y-1.5">
+                          <label className="font-semibold uppercase tracking-wider block text-[10px]">City *</label>
+                          <input
+                            type="text"
+                            required
+                            placeholder="Uyo"
+                            value={custCity}
+                            onChange={(e) => setCustCity(e.target.value)}
+                            className="w-full bg-background border border-border/80 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-primary text-foreground"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <label className="font-semibold uppercase tracking-wider block text-[10px]">Country</label>
+                          <input
+                            type="text"
+                            disabled
+                            value="Nigeria 🇳🇬"
+                            className="w-full bg-accent/20 border border-border/80 rounded-xl px-4 py-3 text-xs text-muted cursor-not-allowed"
+                          />
+                        </div>
+                      </div>
+                    </form>
+                  </div>
+
+                  {/* Foot total convert NGN and launch Paystack */}
+                  <div className="p-6 border-t border-border bg-card space-y-4">
+                    <div className="space-y-2 text-xs text-muted">
+                      <div className="flex justify-between">
+                        <span>Products Subtotal</span>
+                        <span>${subtotal.toFixed(2)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span>Shipping Fee</span>
+                        <span>{subtotal >= freeShippingThreshold ? "FREE" : "$4.99"}</span>
+                      </div>
+                      <div className="flex justify-between font-bold text-foreground text-sm pt-2.5 border-t border-border/40">
+                        <span>Naira Total (1 USD = ₦1500)</span>
+                        <span className="text-primary font-bold">
+                          ₦{Math.round((subtotal + (subtotal >= freeShippingThreshold ? 0 : 4.99)) * 1500).toLocaleString()}
+                        </span>
+                      </div>
+                    </div>
+
+                    <div className="pt-2 space-y-3">
+                      <button
+                        type="submit"
+                        form="shipping-form"
+                        disabled={paying}
+                        className="w-full bg-[#25D366] hover:bg-[#1ebd53] text-white font-semibold py-3.5 rounded-full shadow-lg shadow-green-500/10 text-xs uppercase tracking-wider cursor-pointer flex items-center justify-center gap-1.5 disabled:opacity-60"
+                      >
+                        {paying ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" /> Starting Payment...
+                          </>
+                        ) : (
+                          <>
+                            <CreditCard className="w-4 h-4" /> Pay with Paystack
+                          </>
+                        )}
+                      </button>
+                      <div className="flex items-center justify-center gap-1.5 text-[9px] text-muted">
+                        <ShieldCheck className="w-3.5 h-3.5 text-primary" />
+                        <span>Paystack Checkout. Bank, Card & USSD accepted.</span>
+                      </div>
                     </div>
                   </div>
+                </>
+              )}
+
+              {/* STEP 3: TRANSACTION SUCCESS RECEIPT */}
+              {checkoutStep === "success" && (
+                <div className="flex-grow overflow-y-auto p-8 flex flex-col items-center justify-center text-center space-y-6 animate-fade-in bg-background">
+                  <div className="w-16 h-16 rounded-full bg-green-500/10 border border-green-500/20 text-green-600 flex items-center justify-center shadow-inner animate-bounce">
+                    <Check className="w-8 h-8" />
+                  </div>
+                  <div className="space-y-2">
+                    <h3 className="font-serif text-xl font-bold text-foreground">Order Placed Successfully!</h3>
+                    <p className="text-xs text-muted font-light leading-relaxed max-w-[280px]">
+                      Your payment was verified. We have registered your details and will commence delivery of your skin repair products immediately.
+                    </p>
+                  </div>
+
+                  <div className="w-full bg-accent/20 border border-border/80 p-5 rounded-2xl text-left text-xs space-y-3.5">
+                    <div className="pb-2.5 border-b border-border/60">
+                      <span className="text-[10px] text-muted uppercase tracking-wider block">Paystack Reference</span>
+                      <span className="font-mono text-foreground font-semibold mt-0.5 block">{lastOrderRef || "PAY-REF-DEMO-991"}</span>
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-muted uppercase tracking-wider block">Shipping Address</span>
+                      <span className="text-foreground font-medium mt-0.5 block">
+                        {custName}<br />
+                        {custAddress}, {custCity}<br />
+                        Nigeria 🇳🇬 ({custPhone})
+                      </span>
+                    </div>
+                  </div>
+
+                  <button
+                    onClick={() => {
+                      setCheckoutStep("cart");
+                      setIsCartOpen(false);
+                    }}
+                    className="w-full bg-primary text-primary-foreground font-semibold py-3.5 rounded-full text-xs uppercase tracking-wider hover:bg-primary/95 transition-all shadow-md shadow-primary/5 cursor-pointer mt-4"
+                  >
+                    Continue Shopping
+                  </button>
                 </div>
               )}
+
             </div>
           </div>
         </div>

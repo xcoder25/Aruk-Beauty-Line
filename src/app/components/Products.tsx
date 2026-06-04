@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Image from "next/image";
 import { Star, Plus, Leaf, Eye, ShieldCheck, Heart } from "lucide-react";
+import { db } from "../lib/firebase";
+import { collection, getDocs, doc, setDoc } from "firebase/firestore";
 
 export interface Product {
   id: string;
@@ -110,11 +112,56 @@ interface ProductsProps {
 }
 
 export default function Products({ onAddToBag }: ProductsProps) {
+  const [products, setProducts] = useState<Product[]>([]);
+  const [loading, setLoading] = useState(true);
   const [activeTab, setActiveTab] = useState<"all" | "soap" | "cream" | "oil">("all");
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
   const [favorites, setFavorites] = useState<string[]>([]);
 
-  const filteredProducts = PRODUCTS_DATA.filter(
+  useEffect(() => {
+    const loadProducts = async () => {
+      try {
+        setLoading(true);
+        const querySnapshot = await getDocs(collection(db, "products"));
+        const loadedProducts: Product[] = [];
+        querySnapshot.forEach((docSnap) => {
+          loadedProducts.push({ id: docSnap.id, ...docSnap.data() } as Product);
+        });
+
+        if (loadedProducts.length === 0) {
+          console.log("Seeding default products to Cloud Firestore...");
+          for (const prod of PRODUCTS_DATA) {
+            await setDoc(doc(db, "products", prod.id), {
+              name: prod.name,
+              category: prod.category,
+              categoryLabel: prod.categoryLabel,
+              price: prod.price,
+              rating: prod.rating,
+              reviewsCount: prod.reviewsCount,
+              description: prod.description,
+              ingredients: prod.ingredients,
+              size: prod.size,
+              image: prod.image,
+              isBestSeller: prod.isBestSeller || false,
+              isNew: prod.isNew || false,
+            });
+          }
+          setProducts(PRODUCTS_DATA);
+        } else {
+          setProducts(loadedProducts);
+        }
+      } catch (error) {
+        console.error("Error loading products from Firestore, using local fallback: ", error);
+        setProducts(PRODUCTS_DATA);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    loadProducts();
+  }, []);
+
+  const filteredProducts = products.filter(
     (product) => activeTab === "all" || product.category === activeTab
   );
 
@@ -165,11 +212,24 @@ export default function Products({ onAddToBag }: ProductsProps) {
         </div>
 
         {/* Product Grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-10">
-          {filteredProducts.map((product) => {
-            const isFav = favorites.includes(product.id);
-            return (
-              <div
+        {loading ? (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-10 animate-fade-in">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="bg-card border border-border/70 rounded-3xl overflow-hidden p-6 space-y-4 animate-pulse">
+                <div className="aspect-square w-full bg-accent/20 rounded-2xl" />
+                <div className="h-4 bg-accent/20 rounded w-1/3" />
+                <div className="h-6 bg-accent/20 rounded w-3/4" />
+                <div className="h-4 bg-accent/20 rounded w-1/2" />
+                <div className="h-10 bg-accent/20 rounded-full w-full mt-4" />
+              </div>
+            ))}
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8 sm:gap-10">
+            {filteredProducts.map((product) => {
+              const isFav = favorites.includes(product.id);
+              return (
+                <div
                 key={product.id}
                 className="group relative bg-card border border-border/70 rounded-3xl overflow-hidden hover:shadow-xl hover:shadow-stone-900/5 transition-all duration-500 flex flex-col h-full hover:-translate-y-1"
               >
@@ -267,9 +327,10 @@ export default function Products({ onAddToBag }: ProductsProps) {
                   </div>
                 </div>
               </div>
-            );
-          })}
-        </div>
+              );
+            })}
+          </div>
+        )}
 
         {/* Highlight Banner (using client's photo) */}
         <div className="mt-20 bg-background border border-border rounded-[2.5rem] overflow-hidden shadow-sm">
