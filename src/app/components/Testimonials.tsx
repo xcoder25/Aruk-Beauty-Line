@@ -39,7 +39,7 @@ const TESTIMONIALS_DATA: Testimonial[] = [
     location: "San Francisco, CA",
     rating: 5,
     product: "Botanical Glow Facial Elixir",
-    comment: "This facial oil is magical. I put 3 drops on my face before bed and wake up with the most radiant, rested glow. It has helped fade my post-acne dark marks and feels like a luxurious spa treatment in a bottle.",
+    comment: "This facial oil is magical. I put 3 drops on my face before bed and wake up with the most radiant, rested glow. It has helped fade my post-acne dark marks and feels like a luxurious skincare ritual in a bottle.",
     date: "2 months ago"
   },
   {
