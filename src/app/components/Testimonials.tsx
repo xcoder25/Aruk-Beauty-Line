@@ -96,7 +96,7 @@ export default function Testimonials() {
 
                 {/* Comment */}
                 <p className="text-xs text-foreground/90 font-light leading-relaxed mb-6 italic">
-                  "{t.comment}"
+                  &ldquo;{t.comment}&rdquo;
                 </p>
               </div>
 

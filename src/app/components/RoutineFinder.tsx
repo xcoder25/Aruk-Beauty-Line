@@ -167,7 +167,7 @@ export default function RoutineFinder({ isOpen, onClose, onAddMultipleToBag }: R
           <div className="space-y-6">
             <div>
               <h3 className="font-serif text-2xl font-semibold text-foreground">What is your primary skin type?</h3>
-              <p className="text-muted text-xs font-light mt-1.5">This helps us select bases that won't strip or clog your pores.</p>
+              <p className="text-muted text-xs font-light mt-1.5">This helps us select bases that won&apos;t strip or clog your pores.</p>
             </div>
             <div className="grid grid-cols-1 gap-3.5 pt-2">
               <button
