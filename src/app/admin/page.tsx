@@ -591,12 +591,12 @@ export default function AdminPage() {
       {/* ── HEADER NAVIGATION BAR ── */}
       <header className="bg-card border-b border-border/60 shadow-sm sticky top-0 z-30 transition-all">
         <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row justify-between items-center gap-4">
-          <div className="flex items-center gap-3.5">
-            <div className="relative w-[110px] h-[45px] transition-transform duration-300 hover:scale-102">
-              <Image src="/aruk_logo.png" alt="Aruk Logo" fill style={{ objectFit: "contain" }} />
+          <div className="flex items-center gap-3">
+            <div className="relative w-11 h-11 rounded-full overflow-hidden border border-border/80 dark:border-primary/30 shadow-sm flex-shrink-0">
+              <Image src="/aruk_logo_4k.png" alt="Aruk Logo" fill style={{ objectFit: "cover" }} />
             </div>
             <span className="bg-primary/10 border border-primary/20 text-primary text-[9px] font-extrabold px-3 py-1 rounded-full uppercase tracking-widest">
-              Security Console
+              Admin Console
             </span>
           </div>
 

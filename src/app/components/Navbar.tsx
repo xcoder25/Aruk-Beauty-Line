@@ -35,12 +35,12 @@ export default function Navbar({ cartCount, onCartClick, onOpenRoutineFinder }: 
           {/* Logo Section */}
           <div className="flex-shrink-0 flex items-center">
             <a href="#" className="flex items-center gap-2">
-              <div className="relative w-[110px] h-[45px] sm:w-[130px] sm:h-[50px] transition-transform duration-300 hover:scale-102">
+              <div className="relative w-11 h-11 sm:w-13 sm:h-13 rounded-full overflow-hidden border border-border/80 dark:border-primary/30 shadow-sm transition-transform duration-300 hover:scale-105">
                 <Image
-                  src="/aruk_logo.png"
+                  src="/aruk_logo_4k.png"
                   alt="Aruk Logo"
                   fill
-                  style={{ objectFit: "contain" }}
+                  style={{ objectFit: "cover" }}
                   priority
                 />
               </div>

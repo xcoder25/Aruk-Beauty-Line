@@ -63,12 +63,12 @@ export default function Footer() {
           
           {/* Brand Info Column */}
           <div className="space-y-4">
-            <div className="relative w-[110px] h-[45px]">
+            <div className="relative w-12 h-12 rounded-full overflow-hidden border border-border/80 dark:border-primary/20 shadow-sm">
               <Image
-                src="/aruk_logo.png"
+                src="/aruk_logo_4k.png"
                 alt="Aruk Logo"
                 fill
-                style={{ objectFit: "contain" }}
+                style={{ objectFit: "cover" }}
               />
             </div>
             <p className="text-muted leading-relaxed font-light">
