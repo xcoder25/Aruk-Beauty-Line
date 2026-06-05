@@ -53,9 +53,14 @@ export default function ChatBot() {
   const [isLoading, setIsLoading] = useState(false);
   const [hasNewMessage, setHasNewMessage] = useState(false);
   const [showScrollBtn, setShowScrollBtn] = useState(false);
+  const [mounted, setMounted] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const scrollToBottom = useCallback(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -276,7 +281,7 @@ export default function ChatBot() {
                     msg.role === "user" ? "text-white/60 text-right" : "text-muted"
                   }`}
                 >
-                  {formatTime(msg.timestamp)}
+                  {mounted ? formatTime(msg.timestamp) : ""}
                 </p>
               </div>
             </div>
