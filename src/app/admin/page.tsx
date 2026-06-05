@@ -272,28 +272,34 @@ export default function AdminPage() {
 
       if (imageFile) {
         setUploadProgress(0);
-        finalImageUrl = await new Promise((resolve, reject) => {
-          const storageRef = ref(storage, `products/${Date.now()}_${imageFile.name}`);
-          const uploadTask = uploadBytesResumable(storageRef, imageFile);
+        try {
+          finalImageUrl = await new Promise((resolve, reject) => {
+            const storageRef = ref(storage, `products/${Date.now()}_${imageFile.name}`);
+            const uploadTask = uploadBytesResumable(storageRef, imageFile);
 
-          uploadTask.on(
-            "state_changed",
-            (snapshot) => {
-              const progress = Math.round(
-                (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-              );
-              setUploadProgress(progress);
-            },
-            (error) => {
-              console.error("Storage upload error: ", error);
-              reject("Failed to upload image file to Storage.");
-            },
-            async () => {
-              const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-              resolve(downloadUrl);
-            }
-          );
-        });
+            uploadTask.on(
+              "state_changed",
+              (snapshot) => {
+                const progress = Math.round(
+                  (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+                );
+                setUploadProgress(progress);
+              },
+              (error) => {
+                console.error("Storage upload error: ", error);
+                reject(error);
+              },
+              async () => {
+                const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+                resolve(downloadUrl);
+              }
+            );
+          });
+        } catch (uploadErr) {
+          console.warn("Storage upload failed, falling back to local asset path:", uploadErr);
+          setFormError("Notice: Image file upload failed. Fell back to default organic placeholder.");
+          finalImageUrl = "/spa_facial.png"; 
+        }
       }
 
       let categoryLabel = "Artisanal Bar Soap";
@@ -371,28 +377,34 @@ export default function AdminPage() {
 
       if (editImageFile) {
         setEditUploadProgress(0);
-        finalImageUrl = await new Promise((resolve, reject) => {
-          const storageRef = ref(storage, `products/${Date.now()}_${editImageFile.name}`);
-          const uploadTask = uploadBytesResumable(storageRef, editImageFile);
+        try {
+          finalImageUrl = await new Promise((resolve, reject) => {
+            const storageRef = ref(storage, `products/${Date.now()}_${editImageFile.name}`);
+            const uploadTask = uploadBytesResumable(storageRef, editImageFile);
 
-          uploadTask.on(
-            "state_changed",
-            (snapshot) => {
-              const progress = Math.round(
-                (snapshot.bytesTransferred / snapshot.totalBytes) * 100
-              );
-              setEditUploadProgress(progress);
-            },
-            (error) => {
-              console.error("Storage upload error: ", error);
-              reject("Failed to upload new image to storage.");
-            },
-            async () => {
-              const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
-              resolve(downloadUrl);
-            }
-          );
-        });
+            uploadTask.on(
+              "state_changed",
+              (snapshot) => {
+                const progress = Math.round(
+                  (snapshot.bytesTransferred / snapshot.totalBytes) * 100
+                );
+                setEditUploadProgress(progress);
+              },
+              (error) => {
+                console.error("Storage upload error: ", error);
+                reject(error);
+              },
+              async () => {
+                const downloadUrl = await getDownloadURL(uploadTask.snapshot.ref);
+                resolve(downloadUrl);
+              }
+            );
+          });
+        } catch (uploadErr) {
+          console.warn("Storage upload failed, falling back to existing image path:", uploadErr);
+          setFormError("Notice: New image file upload failed. Maintained current product image.");
+          // finalImageUrl retains editImageUrl value
+        }
       }
 
       let categoryLabel = "Artisanal Bar Soap";
