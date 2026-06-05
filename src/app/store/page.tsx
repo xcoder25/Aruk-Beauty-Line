@@ -1,15 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Navbar from "./components/Navbar";
-import Hero from "./components/Hero";
-import Products, { Product } from "./components/Products";
-import Ingredients from "./components/Ingredients";
-import RoutineFinder from "./components/RoutineFinder";
-import Testimonials from "./components/Testimonials";
-import Footer from "./components/Footer";
-import ChatBot from "./components/ChatBot";
-import OrderReceipt from "./components/OrderReceipt";
+import Navbar from "../components/Navbar";
+import Products, { Product } from "../components/Products";
+import Footer from "../components/Footer";
+import ChatBot from "../components/ChatBot";
+import OrderReceipt from "../components/OrderReceipt";
+import RoutineFinder from "../components/RoutineFinder";
 import Image from "next/image";
 import { 
   X, 
@@ -20,44 +17,23 @@ import {
   ShieldCheck, 
   CreditCard, 
   ArrowLeft, 
-  Check, 
-  Sparkles, 
-  Loader2 
+  Loader2,
+  Sparkles,
+  Leaf
 } from "lucide-react";
-import { db } from "./lib/firebase";
+import { db } from "../lib/firebase";
 import { collection, addDoc } from "firebase/firestore";
-import { sendOrderConfirmationEmail } from "./lib/sendOrderEmail";
+import { sendOrderConfirmationEmail } from "../lib/sendOrderEmail";
 
 interface CartItem {
   product: Product;
   quantity: number;
 }
 
-export default function Home() {
+export default function StorePage() {
   const [cart, setCart] = useState<CartItem[]>([]);
   const [isCartLoaded, setIsCartLoaded] = useState(false);
   const [isCartOpen, setIsCartOpen] = useState(false);
-
-  // Load cart from localStorage on mount
-  useEffect(() => {
-    const savedCart = localStorage.getItem("aruk_cart");
-    if (savedCart) {
-      try {
-        setCart(JSON.parse(savedCart));
-      } catch (err) {
-        console.error("Failed to parse saved cart", err);
-      }
-    }
-    setIsCartLoaded(true);
-  }, []);
-
-  // Save cart to localStorage on updates
-  useEffect(() => {
-    if (isCartLoaded) {
-      localStorage.setItem("aruk_cart", JSON.stringify(cart));
-    }
-  }, [cart, isCartLoaded]);
-
   const [isRoutineOpen, setIsRoutineOpen] = useState(false);
   const [toast, setToast] = useState<{ message: string; show: boolean }>({ message: "", show: false });
 
@@ -90,6 +66,26 @@ export default function Home() {
       }
     };
   }, []);
+
+  // Load cart from localStorage on mount
+  useEffect(() => {
+    const savedCart = localStorage.getItem("aruk_cart");
+    if (savedCart) {
+      try {
+        setCart(JSON.parse(savedCart));
+      } catch (err) {
+        console.error("Failed to parse saved cart", err);
+      }
+    }
+    setIsCartLoaded(true);
+  }, []);
+
+  // Save cart to localStorage on updates
+  useEffect(() => {
+    if (isCartLoaded) {
+      localStorage.setItem("aruk_cart", JSON.stringify(cart));
+    }
+  }, [cart, isCartLoaded]);
 
   // Sync scroll lock with cart drawer
   useEffect(() => {
@@ -187,16 +183,15 @@ export default function Home() {
       const totalNaira = subtotal + deliveryFee;
 
       const handler = (window as any).PaystackPop.setup({
-        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "pk_test_df9800d984bc8502f1a602bd1a73eeec84ad1292", // Paystack Test Public Key
+        key: process.env.NEXT_PUBLIC_PAYSTACK_PUBLIC_KEY || "pk_test_df9800d984bc8502f1a602bd1a73eeec84ad1292",
         email: custEmail,
-        amount: totalNaira * 100, // Amount in kobo
+        amount: totalNaira * 100,
         currency: "NGN",
         callback: async (response: any) => {
           const orderRef = response.reference;
           setLastOrderRef(orderRef);
           try {
             const createdTime = new Date().toISOString();
-            // Save completed order details directly to Cloud Firestore
             await addDoc(collection(db, "orders"), {
               name: custName,
               email: custEmail,
@@ -244,7 +239,7 @@ export default function Home() {
             setCheckoutStep("success");
             showToast("Order placed! Confirmation email sent.");
           } catch (dbErr) {
-            console.error("Firestore order logging error: ", dbErr);
+            console.error("Firestore logging error: ", dbErr);
             showToast("Payment verified, failed to record order on server. Contact support.");
           } finally {
             setPaying(false);
@@ -258,13 +253,12 @@ export default function Home() {
 
       handler.openIframe();
     } catch (err) {
-      console.error("Paystack popup instantiation error: ", err);
+      console.error("Paystack error: ", err);
       showToast("Could not trigger Paystack popups.");
       setPaying(false);
     }
   };
 
-  // Calculations
   const totalItems = cart.reduce((sum, item) => sum + item.quantity, 0);
   const subtotal = cart.reduce((sum, item) => sum + item.product.price * item.quantity, 0);
   const freeShippingThreshold = 75000;
@@ -272,11 +266,11 @@ export default function Home() {
   const shippingPercent = Math.min((subtotal / freeShippingThreshold) * 100, 100);
 
   return (
-    <div className="relative min-h-screen">
+    <div className="relative min-h-screen bg-[#FAF7F2] dark:bg-[#0D1108] text-foreground transition-all">
       {/* Toast Notification */}
       <div
         className={`fixed bottom-4 left-4 right-4 sm:left-auto sm:right-6 sm:bottom-6 z-[60] bg-foreground text-background dark:bg-background dark:text-foreground dark:border dark:border-border px-4 py-3 sm:px-5 sm:py-4 rounded-2xl shadow-2xl flex items-center space-x-3 transition-all duration-300 transform max-w-xs sm:max-w-none mx-auto sm:mx-0 ${
-          toast.show ? "opacity-100 translate-y-0" : "opacity-100 translate-y-20 pointer-events-none"
+          toast.show ? "opacity-100 translate-y-0" : "opacity-0 translate-y-20 pointer-events-none"
         }`}
       >
         <div className="w-2 h-2 sm:w-2.5 sm:h-2.5 rounded-full bg-primary flex-shrink-0" />
@@ -299,37 +293,51 @@ export default function Home() {
         </span>
       </a>
 
-      {/* Main Pages */}
+      {/* Navigation */}
       <Navbar
         cartCount={totalItems}
         onCartClick={() => setIsCartOpen(true)}
         onOpenRoutineFinder={() => setIsRoutineOpen(true)}
       />
 
-      <Hero onOpenRoutineFinder={() => setIsRoutineOpen(true)} />
+      {/* ── STORE ELEGANT BANNER ── */}
+      <div className="relative pt-28 pb-16 bg-gradient-to-r from-[#141d0c] to-[#0a1005] border-b border-primary/20 text-white overflow-hidden">
+        {/* Abstract decorative leaf in background */}
+        <Leaf className="absolute right-10 bottom-[-30px] w-64 h-64 text-[#7AC620]/5 pointer-events-none transform rotate-12" />
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 text-center sm:text-left relative z-10">
+          <div className="flex items-center justify-center sm:justify-start space-x-2 text-primary mb-3">
+            <Leaf className="w-5 h-5" />
+            <span className="text-xs font-bold uppercase tracking-widest text-[#7AC620]">Aruk Skincare Boutique</span>
+          </div>
+          <h1 className="font-serif text-3xl sm:text-4xl lg:text-5xl font-bold leading-tight">
+            Our Complete Collection
+          </h1>
+          <p className="text-xs sm:text-sm text-[#b4e878] font-light mt-3 max-w-2xl leading-relaxed">
+            Browse our full catalog of 99.5% organic, pocket-friendly skin products. Specially formulated in micro-batches to nourish, restore healthy radiance, and repair mature skin. Handcrafted in Uyo, Nigeria.
+          </p>
+        </div>
+      </div>
 
+      {/* Products Grid Component */}
       <Products onAddToBag={handleAddToBag} />
 
-      <Ingredients />
-
-      <Testimonials />
-
+      {/* Footer */}
       <Footer />
 
-      {/* AI Chatbot Widget */}
+      {/* Customer Skincare AI Assistant */}
       <ChatBot />
 
-      {/* Skincare Quiz Modal */}
+      {/* Skincare Quiz Quiz Modal */}
       <RoutineFinder
         isOpen={isRoutineOpen}
         onClose={() => setIsRoutineOpen(false)}
         onAddMultipleToBag={handleAddMultipleToBag}
       />
 
-      {/* Shopping Cart Slider Drawer */}
+      {/* Shopping Cart Drawer */}
       {isCartOpen && (
         <div className="fixed inset-0 z-50 overflow-hidden">
-          {/* Backdrop overlay */}
+          {/* Backdrop */}
           <div
             onClick={() => setIsCartOpen(false)}
             className="absolute inset-0 bg-black/50 backdrop-blur-xs transition-opacity duration-300"
@@ -341,7 +349,6 @@ export default function Home() {
               {/* STEP 1: CART LIST VIEW */}
               {checkoutStep === "cart" && (
                 <>
-                  {/* Header */}
                   <div className="p-6 border-b border-border flex items-center justify-between">
                     <div className="flex items-center space-x-2">
                       <ShoppingBag className="w-5 h-5 text-primary" />
@@ -371,7 +378,7 @@ export default function Home() {
                     )}
                   </div>
 
-                  {/* Items List */}
+                  {/* Items list */}
                   <div className="flex-grow overflow-y-auto p-6 space-y-4">
                     {cart.length === 0 ? (
                       <div className="flex flex-col items-center justify-center py-20 text-center space-y-4">
@@ -397,7 +404,6 @@ export default function Home() {
                           key={item.product.id}
                           className="flex items-center gap-4 p-4 border border-border/80 rounded-2xl bg-card"
                         >
-                          {/* Image preview */}
                           <div className="relative w-16 h-16 rounded-xl overflow-hidden bg-accent/20 flex-shrink-0">
                             {item.product.image ? (
                               <Image
@@ -411,7 +417,6 @@ export default function Home() {
                             )}
                           </div>
 
-                          {/* Info & Quantity controls */}
                           <div className="flex-grow">
                             <div className="flex justify-between items-start">
                               <h4 className="text-xs font-bold text-foreground leading-tight line-clamp-1">{item.product.name}</h4>
@@ -425,7 +430,6 @@ export default function Home() {
                             <span className="text-[10px] text-muted block mt-0.5">{item.product.size}</span>
                             
                             <div className="flex justify-between items-center mt-3">
-                              {/* Quantity selectors */}
                               <div className="flex items-center border border-border/80 rounded-full bg-background px-1.5 py-0.5">
                                 <button
                                   onClick={() => handleUpdateQuantity(item.product.id, -1)}
@@ -443,8 +447,6 @@ export default function Home() {
                                   <Plus className="w-3 h-3" />
                                 </button>
                               </div>
-                              
-                              {/* Price */}
                               <span className="text-xs font-bold text-foreground">
                                 ₦{(item.product.price * item.quantity).toLocaleString()}
                               </span>
@@ -455,7 +457,7 @@ export default function Home() {
                     )}
                   </div>
 
-                  {/* Checkout Foot */}
+                  {/* Footer calculations */}
                   {cart.length > 0 && (
                     <div className="p-6 border-t border-border bg-card space-y-4">
                       <div className="space-y-2.5 text-xs text-muted">
@@ -476,7 +478,6 @@ export default function Home() {
                         >
                           <CreditCard className="w-4 h-4" /> Proceed to Checkout
                         </button>
-                        
                         <div className="flex items-center justify-center gap-1.5 text-[10px] text-muted">
                           <ShieldCheck className="w-3.5 h-3.5 text-primary" />
                           <span>SSL Secured E-Commerce Checkout</span>
@@ -490,7 +491,6 @@ export default function Home() {
               {/* STEP 2: SHIPPING DETAILS FORM */}
               {checkoutStep === "shipping" && (
                 <>
-                  {/* Header */}
                   <div className="p-6 border-b border-border flex items-center justify-between">
                     <button
                       onClick={() => setCheckoutStep("cart")}
@@ -507,7 +507,6 @@ export default function Home() {
                     </button>
                   </div>
 
-                  {/* Form fields */}
                   <div className="flex-grow overflow-y-auto p-6">
                     <form onSubmit={handlePaystackCheckout} id="shipping-form" className="space-y-4 text-xs text-foreground">
                       <div className="space-y-1.5">
@@ -523,7 +522,7 @@ export default function Home() {
                       </div>
 
                       <div className="space-y-1.5">
-                        <label className="font-semibold uppercase tracking-wider block text-[10px]">Email Address * (For Receipt)</label>
+                        <label className="font-semibold uppercase tracking-wider block text-[10px]">Email Address *</label>
                         <input
                           type="email"
                           required
@@ -583,7 +582,6 @@ export default function Home() {
                     </form>
                   </div>
 
-                  {/* Foot total convert NGN and launch Paystack */}
                   <div className="p-6 border-t border-border bg-card space-y-4">
                     <div className="space-y-2 text-xs text-muted">
                       <div className="flex justify-between">
@@ -635,7 +633,7 @@ export default function Home() {
                   customerName={custName}
                   customerEmail={custEmail}
                   customerPhone={custPhone}
-                  customerAddress={custAddress}
+                  customerAddress={completedOrder.items.length > 0 ? custAddress : ""}
                   customerCity={custCity}
                   items={completedOrder.items.map((item) => ({
                     id: item.product.id,
@@ -647,8 +645,8 @@ export default function Home() {
                   totalNaira={completedOrder.totalNaira}
                   createdAt={completedOrder.createdAt}
                   onClose={() => {
-                    setCheckoutStep("cart");
                     setIsCartOpen(false);
+                    setCheckoutStep("cart");
                     setCompletedOrder(null);
                   }}
                 />

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { 
@@ -141,6 +141,14 @@ export default function AdminPage() {
   const [uploadProgress, setUploadProgress] = useState(-1);
   const [editUploadProgress, setEditUploadProgress] = useState(-1);
   const [submitting, setSubmitting] = useState(false);
+
+  // ── AI ASSISTANT STATE ──
+  const [ariaOpen, setAriaOpen] = useState(false);
+  const [ariaMessages, setAriaMessages] = useState<Array<{ role: "user" | "model"; content: string; ts: number }>>([]);
+  const [ariaInput, setAriaInput] = useState("");
+  const [ariaLoading, setAriaLoading] = useState(false);
+  const ariaEndRef = useRef<HTMLDivElement>(null);
+  const ariaInputRef = useRef<HTMLTextAreaElement>(null);
 
   // Monitor Auth State
   useEffect(() => {
@@ -484,6 +492,60 @@ export default function AdminPage() {
   const countCreams = products.filter((p) => p.category === "cream").length;
   const countOils = products.filter((p) => p.category === "oil").length;
 
+  // ── AI ASSISTANT HANDLERS ──
+  // Auto-scroll to latest message
+  useEffect(() => {
+    ariaEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [ariaMessages, ariaLoading]);
+
+  // Focus input when panel opens
+  useEffect(() => {
+    if (ariaOpen) setTimeout(() => ariaInputRef.current?.focus(), 150);
+  }, [ariaOpen]);
+
+  const sendAriaMessage = async (messageText?: string) => {
+    const text = (messageText ?? ariaInput).trim();
+    if (!text || ariaLoading) return;
+
+    const userMsg = { role: "user" as const, content: text, ts: Date.now() };
+    setAriaMessages((prev) => [...prev, userMsg]);
+    setAriaInput("");
+    setAriaLoading(true);
+
+    try {
+      const history = ariaMessages.map(({ role, content }) => ({ role, content }));
+      const context = {
+        products: products.map((p) => ({ name: p.name, category: p.category, price: p.price })),
+        orders: orders.map((o) => ({ status: o.status, totalNaira: o.totalNaira, createdAt: o.createdAt })),
+      };
+
+      const res = await fetch("/api/admin-ai", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ message: text, history, context }),
+      });
+
+      const data = await res.json();
+      if (data.error) throw new Error(data.error);
+
+      setAriaMessages((prev) => [
+        ...prev,
+        { role: "model", content: data.reply, ts: Date.now() },
+      ]);
+    } catch (err: any) {
+      setAriaMessages((prev) => [
+        ...prev,
+        {
+          role: "model",
+          content: `⚠️ ${err.message || "Something went wrong. Please try again."}`,
+          ts: Date.now(),
+        },
+      ]);
+    } finally {
+      setAriaLoading(false);
+    }
+  };
+
   // Filters for lists
   const filteredProducts = products.filter((prod) => {
     const matchesSearch = prod.name.toLowerCase().includes(prodSearch.toLowerCase()) || 
@@ -516,7 +578,7 @@ export default function AdminPage() {
   // AUTH LOGIN / REGISTER CANVAS
   if (!user) {
     return (
-      <main className="min-h-screen bg-[#FAF7F2] dark:bg-[#11100F] flex items-center justify-center p-4">
+      <main className="admin-page min-h-screen bg-[#FAF7F2] dark:bg-[#11100F] flex items-center justify-center p-4">
         <div className="w-full max-w-md bg-card border border-border/80 rounded-[2.5rem] shadow-xl p-8 sm:p-10 animate-fade-in relative overflow-hidden">
           {/* Logo brand highlight overlay */}
           <div className="absolute top-0 left-0 right-0 h-1.5 bg-primary" />
@@ -551,7 +613,7 @@ export default function AdminPage() {
                   placeholder="admin@arukbeautyline.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="w-full bg-background border border-border/80 rounded-xl px-4 py-3.5 pl-10 text-xs focus:outline-none focus:border-primary text-foreground"
+                  className="w-full bg-background border border-border/80 rounded-xl px-4 py-3.5 pl-10 text-sm focus:outline-none focus:border-primary text-foreground"
                 />
                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
               </div>
@@ -566,7 +628,7 @@ export default function AdminPage() {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="w-full bg-background border border-border/80 rounded-xl px-4 py-3.5 pl-10 text-xs focus:outline-none focus:border-primary text-foreground"
+                  className="w-full bg-background border border-border/80 rounded-xl px-4 py-3.5 pl-10 text-sm focus:outline-none focus:border-primary text-foreground"
                 />
                 <Lock className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
               </div>
@@ -598,7 +660,7 @@ export default function AdminPage() {
 
   // ACTIVE ADMIN CONSOLE PANEL
   return (
-    <main className="min-h-screen bg-[#FAF7F2] dark:bg-[#0D1108] text-foreground pb-16">
+    <main className="admin-page min-h-screen bg-[#FAF7F2] dark:bg-[#0D1108] text-foreground pb-16">
       
       {/* ── HEADER NAVIGATION BAR ── */}
       <header className="bg-card border-b border-border/60 shadow-sm sticky top-0 z-30 transition-all">
@@ -607,16 +669,16 @@ export default function AdminPage() {
             <div className="relative w-11 h-11 rounded-full overflow-hidden border border-border/80 dark:border-primary/30 shadow-sm flex-shrink-0">
               <Image src="/aruk_logo_4k.png" alt="Aruk Logo" fill style={{ objectFit: "cover" }} />
             </div>
-            <span className="bg-primary/10 border border-primary/20 text-primary text-[9px] font-extrabold px-3 py-1 rounded-full uppercase tracking-widest">
+            <span className="bg-primary/10 border border-primary/20 text-primary text-xs font-extrabold px-3 py-1 rounded-full uppercase tracking-widest">
               Admin Console
             </span>
           </div>
 
           {/* Tab Selection */}
-          <nav className="flex items-center gap-1 bg-accent/40 dark:bg-accent/15 p-1 rounded-full border border-border/50 text-xs">
+          <nav className="flex items-center gap-1 bg-accent/40 dark:bg-accent/15 p-1 rounded-full border border-border/50 text-sm">
             <button
               onClick={() => setActiveTab("overview")}
-              className={`px-5 py-2 rounded-full font-semibold transition-all uppercase tracking-wider cursor-pointer ${
+              className={`px-5 py-2.5 rounded-full font-semibold transition-all uppercase tracking-wider cursor-pointer ${
                 activeTab === "overview"
                   ? "bg-primary text-primary-foreground shadow-md"
                   : "text-foreground hover:text-primary"
@@ -626,7 +688,7 @@ export default function AdminPage() {
             </button>
             <button
               onClick={() => setActiveTab("products")}
-              className={`px-5 py-2 rounded-full font-semibold transition-all uppercase tracking-wider cursor-pointer ${
+              className={`px-5 py-2.5 rounded-full font-semibold transition-all uppercase tracking-wider cursor-pointer ${
                 activeTab === "products"
                   ? "bg-primary text-primary-foreground shadow-md"
                   : "text-foreground hover:text-primary"
@@ -636,7 +698,7 @@ export default function AdminPage() {
             </button>
             <button
               onClick={() => setActiveTab("orders")}
-              className={`px-5 py-2 rounded-full font-semibold transition-all uppercase tracking-wider relative cursor-pointer ${
+              className={`px-5 py-2.5 rounded-full font-semibold transition-all uppercase tracking-wider relative cursor-pointer ${
                 activeTab === "orders"
                   ? "bg-primary text-primary-foreground shadow-md"
                   : "text-foreground hover:text-primary"
@@ -644,14 +706,27 @@ export default function AdminPage() {
             >
               Orders
               {pendingDeliveries > 0 && (
-                <span className="absolute -top-1 -right-1 bg-red-500 text-white font-extrabold text-[8px] w-4.5 h-4.5 rounded-full flex items-center justify-center animate-pulse border border-card">
+                <span className="absolute -top-1 -right-1 bg-red-500 text-white font-extrabold text-xs w-4.5 h-4.5 rounded-full flex items-center justify-center animate-pulse border border-card">
                   {pendingDeliveries}
                 </span>
               )}
             </button>
           </nav>
+          {/* Aria AI shortcut button in header */}
+          <button
+            onClick={() => setAriaOpen((o) => !o)}
+            className={`hidden md:flex items-center gap-2 px-4 py-2 rounded-full text-sm font-bold uppercase tracking-wider transition-all cursor-pointer border ${
+              ariaOpen
+                ? "bg-primary text-white border-primary shadow-lg shadow-primary/30"
+                : "bg-primary/10 text-primary border-primary/30 hover:bg-primary/20"
+            }`}
+            style={{ minHeight: 36 }}
+          >
+            <Sparkles className="w-3.5 h-3.5" />
+            Aria AI
+          </button>
           
-          <div className="flex items-center gap-4 text-xs font-light text-muted">
+          <div className="flex items-center gap-4 text-sm text-muted">
             <span className="hidden sm:inline">Signed in as: <strong className="font-semibold text-foreground">{user.email}</strong></span>
             <button
               onClick={handleLogout}
@@ -667,12 +742,12 @@ export default function AdminPage() {
         
         {/* Global Notifications */}
         {formSuccess && (
-          <div className="mb-6 p-4 rounded-2xl border border-green-500/20 bg-green-500/5 text-green-600 text-xs font-semibold flex items-center gap-2.5 shadow-sm animate-fade-in">
+          <div className="mb-6 p-4 rounded-2xl border border-green-500/20 bg-green-500/5 text-green-600 text-sm font-semibold flex items-center gap-2.5 shadow-sm animate-fade-in">
             <Check className="w-4.5 h-4.5 flex-shrink-0" /> {formSuccess}
           </div>
         )}
         {formError && (
-          <div className="mb-6 p-4 rounded-2xl border border-red-500/20 bg-red-500/5 text-red-500 text-xs font-semibold flex items-center gap-2.5 shadow-sm animate-fade-in">
+          <div className="mb-6 p-4 rounded-2xl border border-red-500/20 bg-red-500/5 text-red-500 text-sm font-semibold flex items-center gap-2.5 shadow-sm animate-fade-in">
             <X className="w-4.5 h-4.5 flex-shrink-0" /> {formError}
           </div>
         )}
@@ -700,9 +775,9 @@ export default function AdminPage() {
               
               <div className="bg-card border border-border/70 rounded-3xl p-6 shadow-sm flex items-center justify-between">
                 <div className="space-y-1">
-                  <span className="text-[10px] uppercase font-bold tracking-widest text-muted block">Gross Revenue</span>
+                  <span className="text-sm uppercase font-semibold tracking-wider text-foreground/70 block">Gross Revenue</span>
                   <span className="text-xl sm:text-2xl font-extrabold text-foreground">₦{totalRevenue.toLocaleString()}</span>
-                  <span className="text-[9px] text-[#7AC620] font-semibold flex items-center gap-0.5 mt-1">
+                  <span className="text-xs text-[#7AC620] font-semibold flex items-center gap-0.5 mt-1">
                     <TrendingUp className="w-3 h-3" /> Live Transaction Volume
                   </span>
                 </div>
@@ -713,9 +788,9 @@ export default function AdminPage() {
 
               <div className="bg-card border border-border/70 rounded-3xl p-6 shadow-sm flex items-center justify-between">
                 <div className="space-y-1">
-                  <span className="text-[10px] uppercase font-bold tracking-widest text-muted block">Total Orders</span>
+                  <span className="text-sm uppercase font-semibold tracking-wider text-foreground/70 block">Total Orders</span>
                   <span className="text-xl sm:text-2xl font-extrabold text-foreground">{orders.length}</span>
-                  <span className="text-[9px] text-muted block mt-1">
+                  <span className="text-xs text-muted block mt-1">
                     Processed: <strong className="font-semibold text-foreground">{deliveredOrders + shippedOrders}</strong> orders
                   </span>
                 </div>
@@ -726,9 +801,9 @@ export default function AdminPage() {
 
               <div className="bg-card border border-border/70 rounded-3xl p-6 shadow-sm flex items-center justify-between">
                 <div className="space-y-1">
-                  <span className="text-[10px] uppercase font-bold tracking-widest text-muted block">Pending Fulfilment</span>
+                  <span className="text-sm uppercase font-semibold tracking-wider text-foreground/70 block">Pending Fulfilment</span>
                   <span className="text-xl sm:text-2xl font-extrabold text-red-500">{pendingDeliveries}</span>
-                  <span className="text-[9px] text-red-400 font-medium flex items-center gap-0.5 mt-1">
+                  <span className="text-xs text-red-400 font-medium flex items-center gap-0.5 mt-1">
                     <Clock className="w-3 h-3 animate-pulse" /> Awaiting packaging
                   </span>
                 </div>
@@ -739,9 +814,9 @@ export default function AdminPage() {
 
               <div className="bg-card border border-border/70 rounded-3xl p-6 shadow-sm flex items-center justify-between">
                 <div className="space-y-1">
-                  <span className="text-[10px] uppercase font-bold tracking-widest text-muted block">Active Catalogue</span>
+                  <span className="text-sm uppercase font-semibold tracking-wider text-foreground/70 block">Active Catalogue</span>
                   <span className="text-xl sm:text-2xl font-extrabold text-foreground">{products.length}</span>
-                  <span className="text-[9px] text-muted block mt-1">
+                  <span className="text-xs text-muted block mt-1">
                     S: {countSoaps} | C: {countCreams} | O: {countOils}
                   </span>
                 </div>
@@ -829,7 +904,7 @@ export default function AdminPage() {
 
                 </div>
                 
-                <div className="pt-4 border-t border-border/50 text-[10px] text-muted font-light leading-relaxed">
+                <div className="pt-4 border-t border-border/50 text-xs text-muted font-light leading-relaxed">
                   * Live status percentage values represent portions of orders logged in Cloud Firestore. Update statuses inside the <strong>Orders Manager</strong> tab.
                 </div>
               </div>
@@ -860,19 +935,19 @@ export default function AdminPage() {
                 ) : (
                   <div className="divide-y divide-border/40 overflow-y-auto max-h-[300px]">
                     {orders.slice(0, 5).map((order) => (
-                      <div key={order.id} className="py-3.5 flex justify-between items-center text-xs">
+                      <div key={order.id} className="py-4 flex justify-between items-center text-sm">
                         <div className="space-y-1">
                           <p className="font-bold text-foreground">{order.name}</p>
-                          <p className="text-[10px] text-muted">
+                          <p className="text-xs text-muted">
                             Ref: {order.paystackReference} · {new Date(order.createdAt).toLocaleDateString()}
                           </p>
                         </div>
                         <div className="text-right flex items-center gap-4">
                           <div>
                             <p className="font-bold text-foreground">₦{order.totalNaira.toLocaleString()}</p>
-                            <p className="text-[9px] text-muted">{order.items.reduce((s, i) => s + i.quantity, 0)} Items</p>
+                            <p className="text-xs text-muted">{order.items.reduce((s, i) => s + i.quantity, 0)} Items</p>
                           </div>
-                          <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wider ${
                             order.status === "Pending Delivery" ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20" :
                             order.status === "Processed" ? "bg-blue-500/10 text-blue-500 border border-blue-500/20" :
                             order.status === "Shipped" ? "bg-purple-500/10 text-purple-500 border border-purple-500/20" :
@@ -905,26 +980,26 @@ export default function AdminPage() {
                 <h3 className="font-serif text-lg font-bold text-foreground">Add New Product</h3>
               </div>
 
-              <form onSubmit={handleProductSubmit} className="space-y-4 text-xs">
+              <form onSubmit={handleProductSubmit} className="space-y-5 text-sm">
                 <div className="space-y-1.5">
-                  <label className="font-semibold uppercase tracking-wider text-muted">Product Name *</label>
+                  <label className="font-semibold text-sm text-foreground/70">Product Name *</label>
                   <input
                     type="text"
                     required
                     placeholder="e.g. Honey Amber Glow Soap"
                     value={name}
                     onChange={(e) => setName(e.target.value)}
-                    className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-primary text-foreground"
+                    className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary text-foreground"
                   />
                 </div>
 
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
-                    <label className="font-semibold uppercase tracking-wider text-muted">Category *</label>
+                    <label className="font-semibold text-sm text-foreground/70">Category *</label>
                     <select
                       value={category}
                       onChange={(e) => setCategory(e.target.value as any)}
-                      className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-primary text-foreground"
+                      className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary text-foreground"
                     >
                       <option value="soap">Soap Bar</option>
                       <option value="cream">Whipped Cream</option>
@@ -933,14 +1008,14 @@ export default function AdminPage() {
                   </div>
 
                   <div className="space-y-1.5">
-                    <label className="font-semibold uppercase tracking-wider text-muted">Volume / Size *</label>
+                    <label className="font-semibold text-sm text-foreground/70">Volume / Size *</label>
                     <input
                       type="text"
                       required
                       placeholder="e.g. 150g / 5.3 oz"
                       value={size}
                       onChange={(e) => setSize(e.target.value)}
-                      className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-primary text-foreground"
+                      className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary text-foreground"
                     />
                   </div>
                 </div>
@@ -948,24 +1023,24 @@ export default function AdminPage() {
                 <div className="grid grid-cols-2 gap-4">
                   <div className="space-y-1.5">
                     <label className="font-semibold uppercase tracking-wider text-muted flex items-center gap-1">
-                      Price (USD $) *
+                      Price (NGN ₦) *
                     </label>
                     <div className="relative">
                       <input
                         type="number"
-                        step="0.01"
+                        step="any"
                         required
-                        placeholder="14.00"
+                        placeholder="21000"
                         value={price}
                         onChange={(e) => setPrice(e.target.value)}
-                        className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 pl-8 text-xs focus:outline-none focus:border-primary text-foreground"
+                        className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 pl-8 text-sm focus:outline-none focus:border-primary text-foreground"
                       />
-                      <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-muted text-sm">₦</span>
                     </div>
                   </div>
 
                   <div className="flex items-center justify-around gap-2 pt-6">
-                    <label className="flex items-center gap-1.5 cursor-pointer font-semibold uppercase tracking-wider text-muted text-[10px]">
+                    <label className="flex items-center gap-1.5 cursor-pointer font-semibold uppercase tracking-wider text-muted text-xs">
                       <input
                         type="checkbox"
                         checked={isBestSeller}
@@ -974,7 +1049,7 @@ export default function AdminPage() {
                       />
                       Best Seller
                     </label>
-                    <label className="flex items-center gap-1.5 cursor-pointer font-semibold uppercase tracking-wider text-muted text-[10px]">
+                    <label className="flex items-center gap-1.5 cursor-pointer font-semibold uppercase tracking-wider text-muted text-xs">
                       <input
                         type="checkbox"
                         checked={isNew}
@@ -987,25 +1062,25 @@ export default function AdminPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-semibold uppercase tracking-wider text-muted">Ingredients (comma separated)</label>
+                  <label className="font-semibold text-sm text-foreground/70">Ingredients (comma separated)</label>
                   <input
                     type="text"
                     placeholder="e.g. Lavender Essential Oil, Colloidal Oats, Shea Butter"
                     value={ingredientsText}
                     onChange={(e) => setIngredientsText(e.target.value)}
-                    className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-primary text-foreground"
+                    className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary text-foreground"
                   />
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-semibold uppercase tracking-wider text-muted">Description *</label>
+                  <label className="font-semibold text-sm text-foreground/70">Description *</label>
                   <textarea
                     rows={3}
                     required
                     placeholder="Provide description of product application, skin benefits, and curing details..."
                     value={description}
                     onChange={(e) => setDescription(e.target.value)}
-                    className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-primary text-foreground resize-none"
+                    className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary text-foreground resize-none"
                   />
                 </div>
 
@@ -1019,11 +1094,11 @@ export default function AdminPage() {
                       type="file"
                       accept="image/*"
                       onChange={handleFileChange}
-                      className="w-full text-[10px] text-muted file:mr-4 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-[9px] file:font-semibold file:uppercase file:bg-primary/10 file:text-primary file:hover:bg-primary/20 file:cursor-pointer cursor-pointer"
+                      className="w-full text-xs text-muted file:mr-4 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:uppercase file:bg-primary/10 file:text-primary file:hover:bg-primary/20 file:cursor-pointer cursor-pointer"
                     />
                   </div>
 
-                  <div className="flex items-center text-[9px] text-muted gap-2">
+                  <div className="flex items-center text-xs text-muted gap-2">
                     <div className="h-[1px] bg-border flex-grow" />
                     <span>OR PASTE URL LINK</span>
                     <div className="h-[1px] bg-border flex-grow" />
@@ -1038,13 +1113,13 @@ export default function AdminPage() {
                         setImageUrl(e.target.value);
                         setImageFile(null); // clear file
                       }}
-                      className="w-full bg-background border border-border/85 rounded-xl px-4 py-2.5 text-[10px] focus:outline-none focus:border-primary text-foreground"
+                      className="w-full bg-background border border-border/85 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary text-foreground"
                     />
                   </div>
 
                   {uploadProgress >= 0 && (
                     <div className="space-y-1">
-                      <div className="flex justify-between text-[9px] text-muted font-bold">
+                      <div className="flex justify-between text-xs text-muted font-bold">
                         <span>Uploading file...</span>
                         <span>{uploadProgress}%</span>
                       </div>
@@ -1091,7 +1166,7 @@ export default function AdminPage() {
                       placeholder="Search inventory..."
                       value={prodSearch}
                       onChange={(e) => setProdSearch(e.target.value)}
-                      className="bg-background border border-border/80 px-3.5 py-1.5 pl-8 rounded-full focus:outline-none focus:border-primary text-foreground text-[10px] w-[140px] sm:w-[170px]"
+                      className="bg-background border border-border/80 px-3.5 py-1.5 pl-8 rounded-full focus:outline-none focus:border-primary text-foreground text-xs w-[140px] sm:w-[170px]"
                     />
                     <Search className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
                   </div>
@@ -1099,7 +1174,7 @@ export default function AdminPage() {
                   <select
                     value={prodCategoryFilter}
                     onChange={(e) => setProdCategoryFilter(e.target.value as any)}
-                    className="bg-background border border-border/80 px-3.5 py-1.5 rounded-full focus:outline-none focus:border-primary text-foreground text-[10px] cursor-pointer"
+                    className="bg-background border border-border/80 px-3.5 py-1.5 rounded-full focus:outline-none focus:border-primary text-foreground text-xs cursor-pointer"
                   >
                     <option value="all">All categories</option>
                     <option value="soap">Soaps</option>
@@ -1143,21 +1218,21 @@ export default function AdminPage() {
 
                         <div className="space-y-1">
                           <h4 className="font-bold text-foreground leading-tight line-clamp-1">{prod.name}</h4>
-                          <div className="flex flex-wrap items-center gap-1.5 text-[9px] text-muted">
+                          <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
                             <span className="bg-accent/60 dark:bg-accent/20 px-2 py-0.5 rounded font-bold uppercase tracking-wider">{prod.category}</span>
                             <span>{prod.size}</span>
                             {prod.isBestSeller && (
-                              <span className="text-[9px] font-bold text-primary tracking-widest uppercase">BestSeller</span>
+                              <span className="text-xs font-bold text-primary tracking-widest uppercase">BestSeller</span>
                             )}
                             {prod.isNew && (
-                              <span className="text-[9px] font-bold text-[#C5A880] tracking-widest uppercase">New</span>
+                              <span className="text-xs font-bold text-[#C5A880] tracking-widest uppercase">New</span>
                             )}
                           </div>
                         </div>
                       </div>
 
                       <div className="flex items-center gap-3">
-                        <span className="font-bold text-foreground text-sm">${prod.price.toFixed(2)}</span>
+                        <span className="font-bold text-foreground text-sm">₦{prod.price.toLocaleString()}</span>
                         
                         <button
                           onClick={() => openEditModal(prod)}
@@ -1209,7 +1284,7 @@ export default function AdminPage() {
                       placeholder="Search orders..."
                       value={orderSearch}
                       onChange={(e) => setOrderSearch(e.target.value)}
-                      className="bg-background border border-border/80 px-3.5 py-1.5 pl-8 rounded-full focus:outline-none focus:border-primary text-foreground text-[10px] w-[140px] sm:w-[170px]"
+                      className="bg-background border border-border/80 px-3.5 py-1.5 pl-8 rounded-full focus:outline-none focus:border-primary text-foreground text-xs w-[140px] sm:w-[170px]"
                     />
                     <Search className="w-3.5 h-3.5 text-muted absolute left-3 top-1/2 -translate-y-1/2" />
                   </div>
@@ -1217,7 +1292,7 @@ export default function AdminPage() {
                   <select
                     value={orderStatusFilter}
                     onChange={(e) => setOrderStatusFilter(e.target.value)}
-                    className="bg-background border border-border/80 px-3.5 py-1.5 rounded-full focus:outline-none focus:border-primary text-foreground text-[10px] cursor-pointer"
+                    className="bg-background border border-border/80 px-3.5 py-1.5 rounded-full focus:outline-none focus:border-primary text-foreground text-xs cursor-pointer"
                   >
                     <option value="all">All statuses</option>
                     <option value="Pending Delivery">Pending</option>
@@ -1258,10 +1333,10 @@ export default function AdminPage() {
                         <div className="space-y-1.5">
                           <div className="flex items-center gap-2">
                             <span className="font-bold text-foreground text-sm leading-tight">{order.name}</span>
-                            <span className="text-[9px] text-muted">{order.city} 🇳🇬</span>
+                            <span className="text-xs text-muted">{order.city} 🇳🇬</span>
                           </div>
-                          <div className="flex flex-wrap items-center gap-1.5 text-[9px] text-muted">
-                            <span className="font-mono bg-accent/40 px-2 py-0.5 rounded text-[8px] font-semibold">{order.paystackReference}</span>
+                          <div className="flex flex-wrap items-center gap-1.5 text-xs text-muted">
+                            <span className="font-mono bg-accent/40 px-2 py-0.5 rounded text-xs font-semibold">{order.paystackReference}</span>
                             <span>{new Date(order.createdAt).toLocaleDateString()}</span>
                             <span>· {order.items.reduce((s, i) => s + i.quantity, 0)} items</span>
                           </div>
@@ -1270,10 +1345,10 @@ export default function AdminPage() {
                         <div className="flex items-center gap-4 self-end sm:self-center">
                           <div className="text-right">
                             <p className="font-bold text-foreground">₦{order.totalNaira.toLocaleString()}</p>
-                            <p className="text-[9px] text-muted">${order.subtotalUsd.toFixed(2)} USD</p>
+                            <p className="text-xs text-muted">${order.subtotalUsd.toFixed(2)} USD</p>
                           </div>
                           
-                          <span className={`px-2.5 py-0.5 rounded-full text-[9px] font-extrabold uppercase tracking-wider ${
+                          <span className={`px-2.5 py-0.5 rounded-full text-xs font-extrabold uppercase tracking-wider ${
                             order.status === "Pending Delivery" ? "bg-yellow-500/10 text-yellow-500 border border-yellow-500/20" :
                             order.status === "Processed" ? "bg-blue-500/10 text-blue-500 border border-blue-500/20" :
                             order.status === "Shipped" ? "bg-purple-500/10 text-purple-500 border border-purple-500/20" :
@@ -1298,7 +1373,7 @@ export default function AdminPage() {
                   <div className="border-b border-border/40 pb-4 flex justify-between items-start gap-4">
                     <div>
                       <h3 className="font-serif text-lg font-bold text-foreground">Order Details</h3>
-                      <p className="font-mono text-[9px] text-muted mt-1 uppercase tracking-widest">REF: {selectedOrder.paystackReference}</p>
+                      <p className="font-mono text-xs text-muted mt-1 uppercase tracking-widest">REF: {selectedOrder.paystackReference}</p>
                     </div>
                     <button 
                       onClick={() => setSelectedOrder(null)}
@@ -1310,7 +1385,7 @@ export default function AdminPage() {
 
                   {/* Customer details */}
                   <div className="space-y-3">
-                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted">Customer Information</h4>
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-muted">Customer Information</h4>
                     <div className="bg-background rounded-2xl p-4 border border-border/70 space-y-2.5">
                       <p className="font-semibold text-foreground flex items-center gap-2">
                         <Sliders className="w-3.5 h-3.5 text-primary" /> {selectedOrder.name}
@@ -1333,13 +1408,13 @@ export default function AdminPage() {
 
                   {/* Products bought details */}
                   <div className="space-y-3">
-                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted">Purchased Items</h4>
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-muted">Purchased Items</h4>
                     <div className="bg-background rounded-2xl border border-border/70 divide-y divide-border/40 overflow-hidden">
                       {selectedOrder.items.map((item, idx) => (
                         <div key={idx} className="p-3.5 flex justify-between items-center text-xs">
                           <div>
                             <p className="font-semibold text-foreground">{item.name}</p>
-                            <p className="text-[10px] text-muted">Qty: {item.quantity} · Price: ${item.price}</p>
+                            <p className="text-xs text-muted">Qty: {item.quantity} · Price: ${item.price}</p>
                           </div>
                           <span className="font-bold text-foreground">${(item.price * item.quantity).toFixed(2)}</span>
                         </div>
@@ -1361,7 +1436,7 @@ export default function AdminPage() {
 
                   {/* Fulfillment Status Changer */}
                   <div className="space-y-3">
-                    <h4 className="text-[10px] font-bold uppercase tracking-widest text-muted">Update Status Control</h4>
+                    <h4 className="text-xs font-bold uppercase tracking-widest text-muted">Update Status Control</h4>
                     
                     <div className="flex flex-col sm:flex-row gap-2">
                       <select
@@ -1444,25 +1519,25 @@ export default function AdminPage() {
             </div>
 
             {/* Modal Form Body */}
-            <form onSubmit={handleEditProductSubmit} className="space-y-4 text-xs">
+            <form onSubmit={handleEditProductSubmit} className="space-y-5 text-sm">
               <div className="space-y-1.5">
-                <label className="font-semibold uppercase tracking-wider text-muted">Product Name *</label>
+                <label className="font-semibold text-sm text-foreground/70">Product Name *</label>
                 <input
                   type="text"
                   required
                   value={editName}
                   onChange={(e) => setEditName(e.target.value)}
-                  className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-primary text-foreground"
+                  className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary text-foreground"
                 />
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="font-semibold uppercase tracking-wider text-muted">Category *</label>
+                  <label className="font-semibold text-sm text-foreground/70">Category *</label>
                   <select
                     value={editCategory}
                     onChange={(e) => setEditCategory(e.target.value as any)}
-                    className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-primary text-foreground cursor-pointer"
+                    className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary text-foreground cursor-pointer"
                   >
                     <option value="soap">Soap Bar</option>
                     <option value="cream">Whipped Cream</option>
@@ -1471,35 +1546,35 @@ export default function AdminPage() {
                 </div>
 
                 <div className="space-y-1.5">
-                  <label className="font-semibold uppercase tracking-wider text-muted">Size / Volume *</label>
+                  <label className="font-semibold text-sm text-foreground/70">Size / Volume *</label>
                   <input
                     type="text"
                     required
                     value={editSize}
                     onChange={(e) => setEditSize(e.target.value)}
-                    className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-primary text-foreground"
+                    className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary text-foreground"
                   />
                 </div>
               </div>
 
               <div className="grid grid-cols-2 gap-4">
                 <div className="space-y-1.5">
-                  <label className="font-semibold uppercase tracking-wider text-muted">Price ($) *</label>
+                  <label className="font-semibold text-sm text-foreground/70">Price (₦) *</label>
                   <div className="relative">
                     <input
                       type="number"
-                      step="0.01"
+                      step="any"
                       required
                       value={editPrice}
                       onChange={(e) => setEditPrice(e.target.value)}
-                      className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 pl-8 text-xs focus:outline-none focus:border-primary text-foreground"
+                      className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 pl-8 text-sm focus:outline-none focus:border-primary text-foreground"
                     />
-                    <DollarSign className="absolute left-2.5 top-1/2 -translate-y-1/2 w-4 h-4 text-muted" />
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 font-bold text-muted text-sm">₦</span>
                   </div>
                 </div>
 
                 <div className="flex items-center justify-around gap-2 pt-6">
-                  <label className="flex items-center gap-1.5 cursor-pointer font-semibold uppercase tracking-wider text-muted text-[10px]">
+                  <label className="flex items-center gap-1.5 cursor-pointer font-semibold uppercase tracking-wider text-muted text-xs">
                     <input
                       type="checkbox"
                       checked={editIsBestSeller}
@@ -1508,7 +1583,7 @@ export default function AdminPage() {
                     />
                     Best Seller
                   </label>
-                  <label className="flex items-center gap-1.5 cursor-pointer font-semibold uppercase tracking-wider text-muted text-[10px]">
+                  <label className="flex items-center gap-1.5 cursor-pointer font-semibold uppercase tracking-wider text-muted text-xs">
                     <input
                       type="checkbox"
                       checked={editIsNew}
@@ -1521,23 +1596,23 @@ export default function AdminPage() {
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-semibold uppercase tracking-wider text-muted">Ingredients (comma separated)</label>
+                <label className="font-semibold text-sm text-foreground/70">Ingredients (comma separated)</label>
                 <input
                   type="text"
                   value={editIngredientsText}
                   onChange={(e) => setEditIngredientsText(e.target.value)}
-                  className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-primary text-foreground"
+                  className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary text-foreground"
                 />
               </div>
 
               <div className="space-y-1.5">
-                <label className="font-semibold uppercase tracking-wider text-muted">Description *</label>
+                <label className="font-semibold text-sm text-foreground/70">Description *</label>
                 <textarea
                   rows={3}
                   required
                   value={editDescription}
                   onChange={(e) => setEditDescription(e.target.value)}
-                  className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-xs focus:outline-none focus:border-primary text-foreground resize-none"
+                  className="w-full bg-background border border-border/85 rounded-xl px-4 py-3 text-sm focus:outline-none focus:border-primary text-foreground resize-none"
                 />
               </div>
 
@@ -1551,11 +1626,11 @@ export default function AdminPage() {
                     type="file"
                     accept="image/*"
                     onChange={handleEditFileChange}
-                    className="w-full text-[10px] text-muted file:mr-4 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-[9px] file:font-semibold file:uppercase file:bg-primary/10 file:text-primary file:hover:bg-primary/20 file:cursor-pointer cursor-pointer"
+                    className="w-full text-xs text-muted file:mr-4 file:py-1.5 file:px-3 file:rounded-full file:border-0 file:text-xs file:font-semibold file:uppercase file:bg-primary/10 file:text-primary file:hover:bg-primary/20 file:cursor-pointer cursor-pointer"
                   />
                 </div>
 
-                <div className="flex items-center text-[9px] text-muted gap-2">
+                <div className="flex items-center text-xs text-muted gap-2">
                   <div className="h-[1px] bg-border flex-grow" />
                   <span>OR PASTE URL LINK</span>
                   <div className="h-[1px] bg-border flex-grow" />
@@ -1569,13 +1644,13 @@ export default function AdminPage() {
                       setEditImageUrl(e.target.value);
                       setEditImageFile(null); // clear file
                     }}
-                    className="w-full bg-background border border-border/85 rounded-xl px-4 py-2.5 text-[10px] focus:outline-none focus:border-primary text-foreground"
+                    className="w-full bg-background border border-border/85 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:border-primary text-foreground"
                   />
                 </div>
 
                 {editUploadProgress >= 0 && (
                   <div className="space-y-1">
-                    <div className="flex justify-between text-[9px] text-muted font-bold">
+                    <div className="flex justify-between text-xs text-muted font-bold">
                       <span>Uploading Image...</span>
                       <span>{editUploadProgress}%</span>
                     </div>
@@ -1616,6 +1691,175 @@ export default function AdminPage() {
         </div>
       )}
 
+      {/* ════════════════════════════════════════════════
+          ARIA — FLOATING AI ADMIN ASSISTANT
+          ════════════════════════════════════════════════ */}
+      {user && (
+        <>
+          {/* Floating trigger button */}
+          <button
+            onClick={() => setAriaOpen((o) => !o)}
+            aria-label="Open Aria AI Assistant"
+            className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-primary text-white shadow-2xl shadow-primary/40 flex items-center justify-center transition-all duration-300 hover:scale-110 hover:shadow-primary/60 cursor-pointer animate-glow-pulse"
+            style={{ minHeight: 56, minWidth: 56 }}
+          >
+            {ariaOpen ? (
+              <X className="w-5 h-5" />
+            ) : (
+              <Sparkles className="w-5 h-5" />
+            )}
+          </button>
+
+          {/* Chat Panel */}
+          {ariaOpen && (
+            <div
+              className="fixed bottom-24 right-6 z-50 w-[370px] max-w-[calc(100vw-24px)] bg-card border border-border/80 rounded-[2rem] shadow-2xl flex flex-col overflow-hidden animate-fade-in-scale"
+              style={{ height: 560, maxHeight: "calc(100vh - 120px)" }}
+            >
+              {/* Header */}
+              <div className="flex items-center gap-3 px-5 py-4 bg-gradient-to-r from-[#141d0c] to-[#0a1005] border-b border-border/40 flex-shrink-0">
+                <div className="w-9 h-9 rounded-full bg-primary/20 border border-primary/40 flex items-center justify-center flex-shrink-0">
+                  <Sparkles className="w-4 h-4 text-primary" />
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="text-sm font-bold text-white leading-none">Aria</p>
+                  <p className="text-xs text-[#7AC620] mt-0.5 font-light">Aruk AI Admin Assistant</p>
+                </div>
+                <div className="w-2 h-2 rounded-full bg-green-400 animate-pulse flex-shrink-0" />
+              </div>
+
+              {/* Messages area */}
+              <div className="flex-1 overflow-y-auto px-4 py-4 space-y-3 scrollbar-thin">
+                {ariaMessages.length === 0 && (
+                  <div className="h-full flex flex-col items-center justify-center text-center gap-4 py-6">
+                    <div className="w-14 h-14 rounded-full bg-primary/10 border border-primary/20 flex items-center justify-center">
+                      <Sparkles className="w-6 h-6 text-primary" />
+                    </div>
+                    <div>
+                      <p className="text-sm font-semibold text-foreground">Hi, I&apos;m Aria! ✨</p>
+                      <p className="text-sm text-muted mt-1 leading-relaxed max-w-[240px]">
+                        Your AI business assistant. I can help with inventory, marketing copy, product descriptions, and more.
+                      </p>
+                    </div>
+                    {/* Quick prompts */}
+                    <div className="w-full space-y-2">
+                      {[
+                        "📦 Show inventory summary",
+                        "✍️ Write a product description",
+                        "📱 Draft an Instagram caption",
+                        "📊 Analyse my orders",
+                      ].map((prompt) => (
+                        <button
+                          key={prompt}
+                          onClick={() => sendAriaMessage(prompt)}
+                          className="w-full text-left text-sm text-foreground border border-border/80 rounded-xl px-3 py-2.5 hover:border-primary/50 hover:bg-primary/5 transition-all cursor-pointer leading-snug"
+                          style={{ minHeight: 'auto' }}
+                        >
+                          {prompt}
+                        </button>
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {ariaMessages.map((msg, i) => (
+                  <div
+                    key={i}
+                    className={`flex gap-2.5 ${
+                      msg.role === "user" ? "flex-row-reverse" : "flex-row"
+                    } chat-bubble`}
+                  >
+                    {msg.role === "model" && (
+                      <div className="w-7 h-7 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center flex-shrink-0 mt-0.5" style={{ minWidth: 28 }}>
+                        <Sparkles className="w-3.5 h-3.5 text-primary" />
+                      </div>
+                    )}
+                    <div
+                      className={`max-w-[82%] px-3.5 py-2.5 rounded-2xl text-sm leading-relaxed whitespace-pre-wrap ${
+                        msg.role === "user"
+                          ? "bg-primary text-white rounded-tr-sm"
+                          : "bg-accent border border-border/60 text-foreground rounded-tl-sm"
+                      }`}
+                    >
+                      {msg.content}
+                    </div>
+                  </div>
+                ))}
+
+                {ariaLoading && (
+                  <div className="flex gap-2.5 flex-row chat-bubble">
+                    <div className="w-7 h-7 rounded-full bg-primary/15 border border-primary/30 flex items-center justify-center flex-shrink-0 mt-0.5" style={{ minWidth: 28 }}>
+                      <Sparkles className="w-3.5 h-3.5 text-primary" />
+                    </div>
+                    <div className="bg-accent border border-border/60 px-4 py-3 rounded-2xl rounded-tl-sm flex items-center gap-1.5">
+                      {[0, 150, 300].map((delay) => (
+                        <span
+                          key={delay}
+                          className="w-1.5 h-1.5 rounded-full bg-primary/60"
+                          style={{ animation: `loaderDotBounce 1s ${delay}ms ease-in-out infinite` }}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                <div ref={ariaEndRef} />
+              </div>
+
+              {/* Input area */}
+              <div className="flex-shrink-0 border-t border-border/50 px-4 py-3 bg-card">
+                {ariaMessages.length > 0 && (
+                  <button
+                    onClick={() => setAriaMessages([])}
+                    className="text-xs text-muted hover:text-foreground mb-2 transition-colors cursor-pointer"
+                    style={{ minHeight: 'auto', minWidth: 'auto' }}
+                  >
+                    Clear conversation
+                  </button>
+                )}
+                <div className="flex items-end gap-2">
+                  <textarea
+                    ref={ariaInputRef}
+                    rows={1}
+                    value={ariaInput}
+                    onChange={(e) => {
+                      setAriaInput(e.target.value);
+                      e.target.style.height = "auto";
+                      e.target.style.height = Math.min(e.target.scrollHeight, 100) + "px";
+                    }}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter" && !e.shiftKey) {
+                        e.preventDefault();
+                        sendAriaMessage();
+                      }
+                    }}
+                    placeholder="Ask Aria anything…"
+                    className="flex-1 bg-background border border-border/80 rounded-xl px-3.5 py-2.5 text-sm focus:outline-none focus:border-primary text-foreground resize-none overflow-hidden leading-relaxed placeholder:text-muted"
+                    style={{ minHeight: 40, maxHeight: 100 }}
+                    disabled={ariaLoading}
+                  />
+                  <button
+                    onClick={() => sendAriaMessage()}
+                    disabled={ariaLoading || !ariaInput.trim()}
+                    className="w-9 h-9 rounded-full bg-primary text-white flex items-center justify-center flex-shrink-0 disabled:opacity-40 hover:bg-primary/90 transition-all cursor-pointer shadow-md shadow-primary/20"
+                    style={{ minHeight: 36, minWidth: 36 }}
+                    aria-label="Send message"
+                  >
+                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="currentColor" className="w-3.5 h-3.5">
+                      <path d="M3.478 2.405a.75.75 0 00-.926.94l2.432 7.905H13.5a.75.75 0 010 1.5H4.984l-2.432 7.905a.75.75 0 00.926.94 60.519 60.519 0 0018.445-8.986.75.75 0 000-1.218A60.517 60.517 0 003.478 2.405z" />
+                    </svg>
+                  </button>
+                </div>
+                <p className="text-xs text-muted mt-2 text-center">Powered by Google Gemini · Press Enter to send</p>
+              </div>
+            </div>
+          )}
+        </>
+      )}
+
     </main>
   );
 }
+
+
+

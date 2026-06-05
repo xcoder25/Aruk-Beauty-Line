@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react";
 import Image from "next/image";
-import { ShoppingBag, Menu, X, Search, Sparkles } from "lucide-react";
+import { usePathname } from "next/navigation";
+import { ShoppingBag, Menu, X, Search, Sparkles, Store } from "lucide-react";
 
 interface NavbarProps {
   cartCount: number;
@@ -11,6 +12,8 @@ interface NavbarProps {
 }
 
 export default function Navbar({ cartCount, onCartClick, onOpenRoutineFinder }: NavbarProps) {
+  const pathname = usePathname();
+  const isHome = pathname === "/";
   const [isOpen, setIsOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
 
@@ -49,16 +52,19 @@ export default function Navbar({ cartCount, onCartClick, onOpenRoutineFinder }: 
 
           {/* Desktop Navigation Links */}
           <div className="hidden md:flex items-center space-x-8">
-            <a href="#products" className="text-sm font-medium tracking-wide text-foreground/80 hover:text-primary transition-colors">
+            <a href="/store" className={`text-sm font-bold tracking-wide transition-colors ${pathname === "/store" ? "text-primary" : "text-foreground/80 hover:text-primary"}`}>
+              Shop Store 🌿
+            </a>
+            <a href={isHome ? "#products" : "/#products"} className="text-sm font-medium tracking-wide text-foreground/80 hover:text-primary transition-colors">
               Our Products
             </a>
-            <a href="#ingredients" className="text-sm font-medium tracking-wide text-foreground/80 hover:text-primary transition-colors">
+            <a href={isHome ? "#ingredients" : "/#ingredients"} className="text-sm font-medium tracking-wide text-foreground/80 hover:text-primary transition-colors">
               Organic Ingredients
             </a>
-            <a href="#about" className="text-sm font-medium tracking-wide text-foreground/80 hover:text-primary transition-colors">
+            <a href={isHome ? "#about" : "/#about"} className="text-sm font-medium tracking-wide text-foreground/80 hover:text-primary transition-colors">
               Our Story
             </a>
-            <a href="#testimonials" className="text-sm font-medium tracking-wide text-foreground/80 hover:text-primary transition-colors">
+            <a href={isHome ? "#testimonials" : "/#testimonials"} className="text-sm font-medium tracking-wide text-foreground/80 hover:text-primary transition-colors">
               Reviews
             </a>
             <button
@@ -114,30 +120,39 @@ export default function Navbar({ cartCount, onCartClick, onOpenRoutineFinder }: 
       >
         <div className="px-4 pt-2 pb-6 space-y-3">
           <a
-            href="#products"
+            href="/store"
             onClick={() => setIsOpen(false)}
-            className="block px-3 py-2.5 rounded-md text-base font-medium hover:bg-primary/5 hover:text-primary transition-all"
+            className={`block px-3 py-2.5 rounded-md text-base font-bold transition-all ${
+              pathname === "/store" ? "bg-primary/10 text-primary" : "hover:bg-primary/5 text-foreground"
+            }`}
+          >
+            Shop Store 🌿
+          </a>
+          <a
+            href={isHome ? "#products" : "/#products"}
+            onClick={() => setIsOpen(false)}
+            className="block px-3 py-2.5 rounded-md text-base font-medium hover:bg-primary/5 hover:text-primary transition-all text-foreground"
           >
             Our Products
           </a>
           <a
-            href="#ingredients"
+            href={isHome ? "#ingredients" : "/#ingredients"}
             onClick={() => setIsOpen(false)}
-            className="block px-3 py-2.5 rounded-md text-base font-medium hover:bg-primary/5 hover:text-primary transition-all"
+            className="block px-3 py-2.5 rounded-md text-base font-medium hover:bg-primary/5 hover:text-primary transition-all text-foreground"
           >
             Organic Ingredients
           </a>
           <a
-            href="#about"
+            href={isHome ? "#about" : "/#about"}
             onClick={() => setIsOpen(false)}
-            className="block px-3 py-2.5 rounded-md text-base font-medium hover:bg-primary/5 hover:text-primary transition-all"
+            className="block px-3 py-2.5 rounded-md text-base font-medium hover:bg-primary/5 hover:text-primary transition-all text-foreground"
           >
             Our Story
           </a>
           <a
-            href="#testimonials"
+            href={isHome ? "#testimonials" : "/#testimonials"}
             onClick={() => setIsOpen(false)}
-            className="block px-3 py-2.5 rounded-md text-base font-medium hover:bg-primary/5 hover:text-primary transition-all"
+            className="block px-3 py-2.5 rounded-md text-base font-medium hover:bg-primary/5 hover:text-primary transition-all text-foreground"
           >
             Reviews
           </a>

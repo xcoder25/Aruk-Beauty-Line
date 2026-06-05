@@ -136,10 +136,7 @@ export default function OrderReceipt({
                 </div>
                 <div className="text-right">
                   <p className="text-xs font-bold text-foreground">
-                    ${(item.price * item.quantity).toFixed(2)}
-                  </p>
-                  <p className="text-[10px] text-muted">
-                    ₦{Math.round(item.price * item.quantity * 1500).toLocaleString()}
+                    ₦{(item.price * item.quantity).toLocaleString()}
                   </p>
                 </div>
               </div>
@@ -155,15 +152,11 @@ export default function OrderReceipt({
           <div className="p-4 space-y-2.5 text-xs">
             <div className="flex justify-between text-muted">
               <span>Products Subtotal</span>
-              <span>${subtotalUsd.toFixed(2)}</span>
+              <span>₦{subtotalUsd.toLocaleString()}</span>
             </div>
             <div className="flex justify-between text-muted">
               <span>Delivery Fee</span>
-              <span>{subtotalUsd >= 50 ? "FREE 🎉" : "$4.99"}</span>
-            </div>
-            <div className="flex justify-between text-muted text-[10px]">
-              <span>Exchange Rate</span>
-              <span>1 USD = ₦1,500</span>
+              <span>{subtotalUsd >= 75000 ? "FREE 🎉" : "₦7,500"}</span>
             </div>
             <div className="h-px bg-border/60" />
             <div className="flex justify-between font-bold text-foreground text-sm">

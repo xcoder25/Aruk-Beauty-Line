@@ -100,9 +100,12 @@ button, a, [role="button"] {
   justify-content: center;
 }
 
-/* But don't break span-level inline elements */
-span[role="button"] {
-  display: inline-flex;
+/* Override for admin dashboard to allow clean and compact controls */
+.admin-page button,
+.admin-page a,
+.admin-page [role="button"] {
+  min-height: unset;
+  min-width: unset;
 }
 
 /* Tap highlight colour — matches brand */

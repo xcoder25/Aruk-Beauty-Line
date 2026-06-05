@@ -28,13 +28,13 @@ const PRODUCTS_DATA: Product[] = [
     name: "Lavender Oats Calm Soap",
     category: "soap",
     categoryLabel: "Artisanal Bar Soap",
-    price: 14,
+    price: 21000,
     rating: 4.9,
     reviewsCount: 124,
     description: "A soothing, exfoliating organic bar soap crafted with ground colloidal oatmeal and organic English lavender oil. Perfect for calming sensitive skin.",
     ingredients: ["Saponified Olive Oil", "Colloidal Oatmeal", "English Lavender Essential Oil", "Shea Butter"],
     size: "150g / 5.3 oz",
-    image: "/spa_facial.png", // Fallback / premium texture
+    image: "/spa_facial.png",
     isBestSeller: true
   },
   {
@@ -42,13 +42,13 @@ const PRODUCTS_DATA: Product[] = [
     name: "Honey Amber Glow Soap",
     category: "soap",
     categoryLabel: "Artisanal Bar Soap",
-    price: 14,
+    price: 21000,
     rating: 4.8,
     reviewsCount: 96,
     description: "Deeply moisturizing soap enriched with raw organic wildflower honey, beeswax, and sweet amber resin extracts. Leaves a rich, warm scent and a golden skin glow.",
     ingredients: ["Wildflower Honey", "Organic Beeswax", "Coconut Oil", "Amber Resin Extract"],
     size: "150g / 5.3 oz",
-    image: "/aruk.jpg", // Using the client's aruk.jpg image!
+    image: "/aruk.jpg",
     isNew: true
   },
   {
@@ -56,13 +56,13 @@ const PRODUCTS_DATA: Product[] = [
     name: "Shea Butter Deep Hydration Cream",
     category: "cream",
     categoryLabel: "Nourishing Cream",
-    price: 28,
+    price: 42000,
     rating: 4.9,
     reviewsCount: 202,
     description: "A rich, whipped hand and body lotion formulated with 20% raw organic shea butter, cold-pressed avocado oil, and soothing chamomile extract.",
     ingredients: ["Raw Shea Butter", "Avocado Oil", "Chamomile Extract", "Vitamin E"],
     size: "200ml / 6.8 fl oz",
-    image: "/spa_facial.png", // Fallback premium beauty look
+    image: "/spa_facial.png",
     isBestSeller: true
   },
   {
@@ -70,7 +70,7 @@ const PRODUCTS_DATA: Product[] = [
     name: "Rosewater Radiance Face Gel",
     category: "cream",
     categoryLabel: "Facial Cream & Gel",
-    price: 32,
+    price: 48000,
     rating: 4.7,
     reviewsCount: 88,
     description: "A light, cooling hydration jelly made with pure Bulgarian rose hydrosol and plant-derived hyaluronic acid. Instantly locks in moisture and plumps skin.",
@@ -83,20 +83,20 @@ const PRODUCTS_DATA: Product[] = [
     name: "Activated Charcoal Mint Detox Soap",
     category: "soap",
     categoryLabel: "Artisanal Bar Soap",
-    price: 15,
+    price: 22500,
     rating: 4.9,
     reviewsCount: 143,
     description: "A clarifying deep-clean bar with activated bamboo charcoal to draw out impurities, blended with crisp double-mint essential oil to wake up your senses.",
     ingredients: ["Bamboo Activated Charcoal", "Peppermint Oil", "Spearmint Oil", "Castor Seed Oil"],
     size: "150g / 5.3 oz",
-    image: "/aruk.jpg" // Using client's image as background
+    image: "/aruk.jpg"
   },
   {
     id: "p6",
     name: "Botanical Glow Facial Elixir",
     category: "oil",
     categoryLabel: "Treatment Oil",
-    price: 38,
+    price: 57000,
     rating: 5.0,
     reviewsCount: 74,
     description: "An ultra-nourishing, non-greasy face oil loaded with cold-pressed rosehip seed oil, organic jojoba oil, and premium neroli flower extract for overnight repair.",
@@ -128,8 +128,17 @@ export default function Products({ onAddToBag }: ProductsProps) {
           loadedProducts.push({ id: docSnap.id, ...docSnap.data() } as Product);
         });
 
-        if (loadedProducts.length === 0) {
-          console.log("Seeding default products to Cloud Firestore...");
+        // Automatically detect and migrate old Firestore collections containing USD prices (< 1000)
+        const hasUsdPrices = loadedProducts.length > 0 && loadedProducts.some((p) => p.price < 1000);
+
+        if (loadedProducts.length === 0 || hasUsdPrices) {
+          console.log("Seeding/Migrating products with NGN prices to Cloud Firestore...");
+          if (hasUsdPrices) {
+            const { deleteDoc, doc } = await import("firebase/firestore");
+            for (const p of loadedProducts) {
+              await deleteDoc(doc(db, "products", p.id));
+            }
+          }
           for (const prod of PRODUCTS_DATA) {
             await setDoc(doc(db, "products", prod.id), {
               name: prod.name,
@@ -317,7 +326,7 @@ export default function Products({ onAddToBag }: ProductsProps) {
                   </p>
 
                   <div className="flex items-center justify-between pt-4 border-t border-border/40 mt-auto">
-                    <span className="text-lg font-bold text-foreground">${product.price.toFixed(2)}</span>
+                    <span className="text-lg font-bold text-foreground">₦{product.price.toLocaleString()}</span>
                     <button
                       onClick={() => onAddToBag(product)}
                       className="flex items-center gap-1.5 bg-primary/10 hover:bg-primary text-primary hover:text-primary-foreground border border-primary/20 hover:border-primary text-xs font-bold px-4 py-2.5 rounded-full transition-all cursor-pointer"
@@ -441,7 +450,7 @@ export default function Products({ onAddToBag }: ProductsProps) {
                 </div>
 
                 <div className="flex items-center justify-between pt-4 border-t border-border/40 mt-auto">
-                  <span className="text-xl font-bold text-foreground">${selectedProduct.price.toFixed(2)}</span>
+                  <span className="text-xl font-bold text-foreground">₦{selectedProduct.price.toLocaleString()}</span>
                   <button
                     onClick={() => {
                       onAddToBag(selectedProduct);
