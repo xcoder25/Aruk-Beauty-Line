@@ -18,6 +18,9 @@ export const metadata: Metadata = {
   title: "Aruk Beauty Line | Organic Skincare for Mature Women",
   description:
     "99.5% Organic, pocket-friendly, and premium quality body care products formulated to repair damaged skin and restore radiance after 40. Handcrafted in Uyo.",
+  other: {
+    "facebook-domain-verification": "lbvocdphupv82841em7k8j4jdntaer",
+  },
 };
 
 export const viewport = {
